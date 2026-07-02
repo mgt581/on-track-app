@@ -98,6 +98,34 @@ button {
   gap: 0.6rem;
 }
 
+.service-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.service-actions {
+  display: flex;
+  gap: 0.4rem;
+  margin-left: auto;
+}
+
+.btn-sm {
+  background: #374151;
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 0.25rem 0.6rem;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+}
+
+.btn-danger {
+  background: #b91c1c;
+}
+
 .chip {
   display: inline-flex;
   align-items: center;

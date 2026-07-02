@@ -25,6 +25,19 @@ const entryNotes = document.getElementById('entry-notes');
 const emptyState = document.getElementById('empty-state');
 const scheduleList = document.getElementById('schedule-list');
 
+const saveServiceBtn = document.getElementById('save-service-btn');
+const cancelEdit = document.getElementById('cancel-edit');
+
+let editingServiceId = null;
+
+function resetServiceForm() {
+  editingServiceId = null;
+  saveServiceBtn.textContent = 'Save service';
+  cancelEdit.style.display = 'none';
+  serviceForm.reset();
+  serviceColor.value = '#2f80ed';
+}
+
 serviceForm.addEventListener('submit', (event) => {
   event.preventDefault();
 
@@ -33,15 +46,56 @@ serviceForm.addEventListener('submit', (event) => {
     return;
   }
 
-  state.services.push({
-    id: crypto.randomUUID(),
-    name,
-    color: serviceColor.value
-  });
+  if (editingServiceId) {
+    const service = state.services.find((s) => s.id === editingServiceId);
+    if (service) {
+      service.name = name;
+      service.color = serviceColor.value;
+    }
+  } else {
+    state.services.push({
+      id: crypto.randomUUID(),
+      name,
+      color: serviceColor.value
+    });
+  }
 
-  serviceForm.reset();
-  serviceColor.value = '#2f80ed';
+  resetServiceForm();
   persistAndRender();
+});
+
+cancelEdit.addEventListener('click', () => {
+  resetServiceForm();
+});
+
+serviceList.addEventListener('click', (event) => {
+  const btn = event.target.closest('button[data-action]');
+  if (!btn) {
+    return;
+  }
+  const id = btn.dataset.id;
+  const action = btn.dataset.action;
+
+  if (action === 'edit') {
+    const service = state.services.find((s) => s.id === id);
+    if (!service) {
+      return;
+    }
+    editingServiceId = id;
+    serviceName.value = service.name;
+    serviceColor.value = service.color;
+    saveServiceBtn.textContent = 'Update service';
+    cancelEdit.style.display = '';
+    serviceName.focus();
+  }
+
+  if (action === 'remove') {
+    state.services = state.services.filter((s) => s.id !== id);
+    if (editingServiceId === id) {
+      resetServiceForm();
+    }
+    persistAndRender();
+  }
 });
 
 entryForm.addEventListener('submit', async (event) => {
@@ -116,9 +170,16 @@ function render() {
   entryService.innerHTML = '';
 
   state.services.forEach((service) => {
-    const chip = document.createElement('li');
-    chip.innerHTML = `<span class="chip" style="background:${service.color}">${escapeHtml(service.name)}</span>`;
-    serviceList.appendChild(chip);
+    const item = document.createElement('li');
+    item.className = 'service-item';
+    item.innerHTML = `
+      <span class="chip" style="background:${service.color}">${escapeHtml(service.name)}</span>
+      <span class="service-actions">
+        <button type="button" class="btn-sm" data-action="edit" data-id="${service.id}">Edit</button>
+        <button type="button" class="btn-sm btn-danger" data-action="remove" data-id="${service.id}">Remove</button>
+      </span>
+    `;
+    serviceList.appendChild(item);
 
     const option = document.createElement('option');
     option.value = service.id;
