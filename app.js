@@ -1,4 +1,5 @@
 const STORAGE_KEY = 'on-track-calendar-v1';
+const SIGN_IN_PAGE = 'signing.html';
 const channel = 'BroadcastChannel' in window ? new BroadcastChannel('on-track-sync') : null;
 const DEFAULT_DURATION_MINUTES = 60;
 const VIEW_LABELS = {
@@ -17,6 +18,7 @@ let calendar = null;
 let editingServiceId = null;
 let activeEntryId = null;
 let reminderTimers = new Map();
+let hasBootstrapped = false;
 
 const serviceForm = document.getElementById('service-form');
 const serviceName = document.getElementById('service-name');
@@ -58,11 +60,67 @@ const modalEntryNotify = document.getElementById('modal-entry-notify');
 const modalEntryNotes = document.getElementById('modal-entry-notes');
 const modalDeleteEntry = document.getElementById('modal-delete-entry');
 const modalUseServiceColor = document.getElementById('modal-use-service-color');
+const authPanel = document.getElementById('app-auth-panel');
+const authUserEmail = document.getElementById('auth-user-email');
+const signOutBtn = document.getElementById('sign-out-btn');
+const firebaseClient = window.onTrackFirebase;
 
-resetServiceForm();
-initializeCalendar();
-registerEvents();
-render();
+if (firebaseClient?.auth) {
+  signOutBtn?.addEventListener('click', handleSignOut);
+  firebaseClient.auth.onAuthStateChanged((user) => {
+    if (!user) {
+      window.location.href = SIGN_IN_PAGE;
+      return;
+    }
+
+    updateSignedInUser(user);
+
+    if (!hasBootstrapped) {
+      bootstrapApp();
+    }
+  });
+} else {
+  document.body.dataset.authReady = 'true';
+  bootstrapApp();
+}
+
+function bootstrapApp() {
+  if (hasBootstrapped) {
+    return;
+  }
+
+  hasBootstrapped = true;
+  resetServiceForm();
+  initializeCalendar();
+  registerEvents();
+  render();
+  document.body.dataset.authReady = 'true';
+}
+
+async function handleSignOut() {
+  if (!firebaseClient?.auth || !signOutBtn) {
+    return;
+  }
+
+  signOutBtn.disabled = true;
+
+  try {
+    await firebaseClient.auth.signOut();
+    window.location.href = SIGN_IN_PAGE;
+  } catch (error) {
+    console.error('Unable to sign out.', error);
+    signOutBtn.disabled = false;
+  }
+}
+
+function updateSignedInUser(user) {
+  if (!authPanel || !authUserEmail) {
+    return;
+  }
+
+  authPanel.hidden = false;
+  authUserEmail.textContent = user.email || user.displayName || 'Signed in';
+}
 
 function registerEvents() {
   serviceForm.addEventListener('submit', handleServiceSubmit);

@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ON TRACK | Sign in</title>
+    <meta name="theme-color" content="#2f80ed" />
+    <link rel="icon" type="image/svg+xml" href="logo.svg" />
+    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png" />
+    <link rel="manifest" href="site.webmanifest" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="signing-page">
+    <header>
+      <h1 class="brand">
+        <img src="logo.svg" alt="ON TRACK" class="brand-logo" />
+      </h1>
+      <p class="subtitle">Sign in to manage your shared calendar.</p>
+    </header>
+
+    <main class="auth-main">
+      <section class="card auth-card">
+        <h2>Welcome back</h2>
+        <p class="auth-status" id="auth-status">Use your email and password or continue with Google.</p>
+
+        <div id="signed-out-view">
+          <form id="email-auth-form" class="grid">
+            <label>
+              Email
+              <input id="auth-email" type="email" autocomplete="email" required placeholder="you@example.com" />
+            </label>
+            <label>
+              Password
+              <input id="auth-password" type="password" autocomplete="current-password" required minlength="6" placeholder="Password" />
+            </label>
+            <div class="auth-actions full-width">
+              <button type="submit" id="email-sign-in-btn">Sign in</button>
+              <button type="button" class="btn-secondary" id="email-sign-up-btn">Sign up</button>
+            </div>
+          </form>
+
+          <div class="auth-divider" aria-hidden="true"><span>or</span></div>
+
+          <button type="button" class="google-btn" id="google-sign-in-btn">Continue with Google</button>
+        </div>
+
+        <div id="signed-in-view" hidden>
+          <p class="auth-copy">Signed in as <strong id="signed-in-email"></strong></p>
+          <div class="auth-actions">
+            <a href="index.html" class="auth-link-button">Open planner</a>
+            <button type="button" class="btn-secondary" id="page-sign-out-btn">Sign out</button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script src="https://www.gstatic.com/firebasejs/12.15.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/12.15.0/firebase-auth-compat.js"></script>
+    <script src="firebase.js"></script>
+    <script src="signing.js"></script>
+  </body>
+</html>

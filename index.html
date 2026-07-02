@@ -10,12 +10,21 @@
     <link rel="manifest" href="site.webmanifest" />
     <link rel="stylesheet" href="styles.css" />
   </head>
-  <body>
-    <header>
-      <h1 class="brand">
-        <img src="logo.svg" alt="ON TRACK" class="brand-logo" />
-      </h1>
-      <p class="subtitle">Simple, clean shared scheduling</p>
+  <body data-auth-ready="false">
+    <header class="app-header">
+      <div class="brand-wrap">
+        <h1 class="brand">
+          <img src="logo.svg" alt="ON TRACK" class="brand-logo" />
+        </h1>
+        <p class="subtitle">Simple, clean shared scheduling</p>
+      </div>
+      <div class="auth-panel" id="app-auth-panel" hidden>
+        <p class="auth-copy">Signed in as <strong id="auth-user-email"></strong></p>
+        <div class="auth-actions">
+          <a href="signing.html" class="auth-link-button">Account</a>
+          <button type="button" class="btn-sm" id="sign-out-btn">Sign out</button>
+        </div>
+      </div>
     </header>
 
     <main>
@@ -184,6 +193,9 @@
       </div>
     </div>
 
+    <script src="https://www.gstatic.com/firebasejs/12.15.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/12.15.0/firebase-auth-compat.js"></script>
+    <script src="firebase.js"></script>
     <script src="vendor/fullcalendar/fullcalendar-core.global.min.js"></script>
     <script src="vendor/fullcalendar/fullcalendar-interaction.global.min.js"></script>
     <script src="vendor/fullcalendar/fullcalendar-daygrid.global.min.js"></script>

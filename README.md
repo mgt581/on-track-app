@@ -16,4 +16,13 @@ A clean, easy-to-read calendar-style planner focused on simple shared scheduling
 - Real-time sync across open app tabs/windows via browser broadcast + storage sync
 
 ### Run
-Open `/home/runner/work/on-track-app/on-track-app/index.html` in a browser.
+Firebase Auth needs the app to be served from an allowed web origin, so run a small local server from `/home/runner/work/on-track-app/on-track-app` and then open `/signing.html`.
+
+Example:
+
+```bash
+cd /home/runner/work/on-track-app/on-track-app
+python3 -m http.server 4173
+```
+
+Then visit `http://localhost:4173/signing.html` in your browser.

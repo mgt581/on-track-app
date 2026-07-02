@@ -20,9 +20,27 @@ body {
   line-height: 1.4;
 }
 
+body[data-auth-ready='false'] main {
+  visibility: hidden;
+}
+
 header {
   padding: 1rem 1rem 0.5rem;
   text-align: center;
+}
+
+.app-header {
+  max-width: 1180px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.brand-wrap {
+  flex: 1 1 320px;
 }
 
 h1 {
@@ -41,6 +59,49 @@ h1 {
   margin: 0.25rem 0 0;
 }
 
+.auth-panel,
+.auth-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.auth-panel {
+  justify-content: flex-end;
+}
+
+.auth-copy {
+  margin: 0;
+  color: var(--muted);
+}
+
+.auth-link-button,
+.google-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 0.6rem 1rem;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--dark);
+  font-size: 1rem;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
+}
+
+.auth-link-button:hover,
+.auth-link-button:focus-visible,
+.google-btn:hover,
+.google-btn:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(17, 24, 39, 0.12);
+}
+
 main {
   max-width: 1180px;
   margin: 0 auto;
@@ -54,6 +115,56 @@ main {
   border-radius: 16px;
   padding: 1rem;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.signing-page {
+  min-height: 100vh;
+}
+
+.signing-page header {
+  padding-top: 2rem;
+}
+
+.auth-main {
+  max-width: 560px;
+}
+
+.auth-card {
+  width: 100%;
+}
+
+.auth-status {
+  margin: 0 0 1rem;
+  padding: 0.85rem 1rem;
+  border-radius: 14px;
+  background: #eef2f7;
+  color: var(--dark);
+}
+
+.auth-status[data-state='error'] {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.auth-status[data-state='success'] {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 1rem 0;
+  color: var(--muted);
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--line);
 }
 
 h2 {
@@ -400,15 +511,22 @@ button:focus-visible {
     min-height: calc(100vh - 240px);
   }
 
+  .app-header,
+  .auth-panel,
   .calendar-tabs,
   .calendar-nav,
   .modal-actions {
     width: 100%;
   }
 
+  .auth-actions,
   .calendar-tabs > button,
   .calendar-nav > button,
   .modal-actions > button {
+    flex: 1 1 0;
+  }
+
+  .auth-actions > * {
     flex: 1 1 0;
   }
 
