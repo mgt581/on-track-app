@@ -1,0 +1,9 @@
+# Jekyll configuration for GitHub Pages
+# Exclude development-only files from the Pages deployment
+exclude:
+  - package.json
+  - package-lock.json
+  - firebase-config.example.js
+  - DB1E5EF7-D199-4078-9548-BDF1CD020A47.PNG
+  - node_modules
+  - .env.example

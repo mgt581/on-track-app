@@ -18,10 +18,10 @@ A clean, easy-to-read calendar-style planner focused on simple shared scheduling
 - Real-time sync across open app tabs/windows via browser broadcast + storage sync
 
 ### Run
-1. Copy `/home/runner/work/on-track-app/on-track-app/firebase-config.example.js` to `firebase-config.local.js`.
+1. Copy `firebase-config.example.js` to `firebase-config.local.js`.
 2. Fill in your Firebase web app config values in `firebase-config.local.js`.
 3. In Firebase, enable **Authentication > Email/Password** and create a Firestore database.
-4. Serve `/home/runner/work/on-track-app/on-track-app` over HTTP (for example: `python3 -m http.server 8000`).
+4. Serve the repository directory over HTTP (for example: `python3 -m http.server 8000`).
 5. Open `http://localhost:8000/signin.html` in a browser.
 
 Each signed-in user gets their own saved planner data. To keep data private per account, configure Firestore security rules so users can only read and write their own `users/{uid}` documents.
