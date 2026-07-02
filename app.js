@@ -1,3 +1,14 @@
+import {
+  firebaseSetupError,
+  isFirebaseConfigured,
+  loadStateForUser,
+  observeAuthState,
+  saveStateForUser,
+  signOutUser,
+  subscribeToUserState,
+  waitForInitialAuthState
+} from './firebase.js';
+
 const STORAGE_KEY = 'on-track-calendar-v1';
 const channel = 'BroadcastChannel' in window ? new BroadcastChannel('on-track-sync') : null;
 const DEFAULT_DURATION_MINUTES = 60;
@@ -12,11 +23,19 @@ const defaultServices = [
   { id: crypto.randomUUID(), name: 'Construction', color: '#8d99ae' }
 ];
 
-let state = loadState();
+let state = createDefaultState();
 let calendar = null;
+let currentUser = null;
 let editingServiceId = null;
 let activeEntryId = null;
 let reminderTimers = new Map();
+let remoteUnsubscribe = () => {};
+
+const appShell = document.getElementById('app-shell');
+const appMessage = document.getElementById('app-message');
+const accountEmail = document.getElementById('account-email');
+const syncStatus = document.getElementById('sync-status');
+const signOutBtn = document.getElementById('sign-out-btn');
 
 const serviceForm = document.getElementById('service-form');
 const serviceName = document.getElementById('service-name');
@@ -59,10 +78,52 @@ const modalEntryNotes = document.getElementById('modal-entry-notes');
 const modalDeleteEntry = document.getElementById('modal-delete-entry');
 const modalUseServiceColor = document.getElementById('modal-use-service-color');
 
-resetServiceForm();
-initializeCalendar();
-registerEvents();
-render();
+initialize();
+
+async function initialize() {
+  signOutBtn.addEventListener('click', handleSignOut);
+
+  if (!isFirebaseConfigured) {
+    showMessage(firebaseSetupError, true);
+    accountEmail.textContent = 'Firebase setup required';
+    syncStatus.textContent = 'Sign-in is unavailable until setup is complete.';
+    return;
+  }
+
+  const user = await waitForInitialAuthState();
+  if (!user) {
+    window.location.replace('signin.html');
+    return;
+  }
+
+  currentUser = user;
+  initializeCalendar();
+  registerEvents();
+  resetServiceForm();
+  updateAccountSummary('Loading your planner…');
+  try {
+    await loadInitialState();
+    syncStatus.textContent = 'Planner synced to your account.';
+    hideMessage();
+    appShell.hidden = false;
+  } catch {
+    showMessage('Could not load your planner. Check your Firebase setup and Firestore rules.', true);
+    syncStatus.textContent = 'Planner sync failed.';
+    signOutBtn.hidden = false;
+    return;
+  }
+
+  observeAuthState((nextUser) => {
+    if (!nextUser) {
+      window.location.replace('signin.html');
+      return;
+    }
+
+    if (nextUser.uid !== currentUser?.uid) {
+      window.location.reload();
+    }
+  });
+}
 
 function registerEvents() {
   serviceForm.addEventListener('submit', handleServiceSubmit);
@@ -125,8 +186,8 @@ function registerEvents() {
 
   if (channel) {
     channel.addEventListener('message', (event) => {
-      if (event.data === 'sync') {
-        state = loadState();
+      if (event.data?.type === 'sync' && event.data.uid === currentUser?.uid) {
+        state = loadCachedState();
         render();
       }
     });
@@ -173,6 +234,117 @@ function initializeCalendar() {
   });
 
   calendar.render();
+}
+
+async function loadInitialState() {
+  const cachedState = loadCachedState();
+  const remoteState = await loadStateForUser(currentUser.uid);
+
+  if (remoteState) {
+    state = hydrateState(remoteState);
+    persistCachedState();
+  } else if (cachedState.entries.length || cachedState.services.length) {
+    state = cachedState;
+    await saveStateForUser(currentUser.uid, state);
+    persistCachedState();
+  } else {
+    state = createDefaultState();
+    await saveStateForUser(currentUser.uid, state);
+    persistCachedState();
+  }
+
+  remoteUnsubscribe = subscribeToUserState(
+    currentUser.uid,
+    (remoteValue) => {
+      if (!remoteValue) {
+        return;
+      }
+
+      const nextState = hydrateState(remoteValue);
+      if (JSON.stringify(nextState) === JSON.stringify(state)) {
+        return;
+      }
+
+      state = nextState;
+      persistCachedState();
+      render();
+      syncStatus.textContent = 'Planner synced to your account.';
+    },
+    () => {
+      syncStatus.textContent = 'Unable to sync live updates right now.';
+    }
+  );
+
+  render();
+}
+
+function updateAccountSummary(statusMessage) {
+  accountEmail.textContent = currentUser?.email ? `Signed in as ${currentUser.email}` : 'Signed in';
+  syncStatus.textContent = statusMessage;
+  signOutBtn.hidden = false;
+}
+
+function getStorageKey() {
+  return `${STORAGE_KEY}:${currentUser?.uid || 'guest'}`;
+}
+
+function createDefaultState() {
+  return hydrateState({ services: defaultServices.map((service) => ({ ...service })), entries: [] });
+}
+
+function loadCachedState() {
+  const saved = localStorage.getItem(getStorageKey());
+  if (!saved) {
+    return createDefaultState();
+  }
+
+  try {
+    return hydrateState(JSON.parse(saved));
+  } catch {
+    return createDefaultState();
+  }
+}
+
+function persistCachedState() {
+  localStorage.setItem(getStorageKey(), JSON.stringify(state));
+}
+
+function persistAndRender() {
+  persistCachedState();
+  if (channel) {
+    channel.postMessage({ type: 'sync', uid: currentUser?.uid });
+  }
+  syncStatus.textContent = 'Saving changes…';
+  void saveStateForUser(currentUser.uid, state)
+    .then(() => {
+      syncStatus.textContent = 'Planner synced to your account.';
+    })
+    .catch(() => {
+      syncStatus.textContent = 'Saved locally. Cloud sync failed.';
+    });
+  render();
+}
+
+function showMessage(message, isError = false) {
+  appMessage.hidden = false;
+  appMessage.textContent = message;
+  appMessage.classList.toggle('status-text', true);
+  appMessage.classList.toggle('error', isError);
+}
+
+function hideMessage() {
+  appMessage.hidden = true;
+}
+
+async function handleSignOut() {
+  signOutBtn.disabled = true;
+  try {
+    remoteUnsubscribe();
+    await signOutUser();
+  } catch {
+    signOutBtn.disabled = false;
+    syncStatus.textContent = 'Could not sign out right now.';
+  }
 }
 
 function handleServiceSubmit(event) {
@@ -403,14 +575,6 @@ function updateEntryFromCalendarEvent(event) {
   persistAndRender();
 }
 
-function persistAndRender() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  if (channel) {
-    channel.postMessage('sync');
-  }
-  render();
-}
-
 function render() {
   state = hydrateState(state);
   renderServiceList();
@@ -513,6 +677,7 @@ function updateCalendarToolbar() {
     const isActive = tab.dataset.view === calendar.view.type;
     tab.classList.toggle('active', isActive);
     tab.setAttribute('aria-selected', String(isActive));
+    tab.textContent = VIEW_LABELS[tab.dataset.view] || tab.textContent;
   });
   calendarToday.textContent = 'Today';
 }
@@ -539,19 +704,6 @@ function resetServiceForm() {
   cancelEdit.style.display = 'none';
   serviceForm.reset();
   serviceColor.value = '#2f80ed';
-}
-
-function loadState() {
-  const saved = localStorage.getItem(STORAGE_KEY);
-  if (!saved) {
-    return hydrateState({ services: defaultServices, entries: [] });
-  }
-
-  try {
-    return hydrateState(JSON.parse(saved));
-  } catch {
-    return hydrateState({ services: defaultServices, entries: [] });
-  }
 }
 
 function hydrateState(rawState) {

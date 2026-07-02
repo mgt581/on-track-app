@@ -25,6 +25,25 @@ header {
   text-align: center;
 }
 
+.account-bar {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-top: 0.75rem;
+}
+
+.account-email,
+.account-sync,
+.status-text {
+  color: var(--muted);
+}
+
+.status-text.error {
+  color: #b91c1c;
+}
+
 h1 {
   margin: 0;
 }
@@ -54,6 +73,11 @@ main {
   border-radius: 16px;
   padding: 1rem;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.status-card {
+  max-width: 1180px;
+  margin: 0 auto;
 }
 
 h2 {
@@ -387,6 +411,35 @@ button:focus-visible {
   margin-top: 0.25rem;
 }
 
+.auth-page {
+  min-height: 100vh;
+}
+
+.auth-shell {
+  max-width: 560px;
+}
+
+.auth-card {
+  display: grid;
+  gap: 1rem;
+}
+
+.auth-copy,
+.setup-copy {
+  margin: 0;
+  color: var(--muted);
+}
+
+.auth-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.auth-actions > button {
+  flex: 1 1 180px;
+}
+
 @media (max-width: 640px) {
   body {
     font-size: 19px;
@@ -402,13 +455,15 @@ button:focus-visible {
 
   .calendar-tabs,
   .calendar-nav,
-  .modal-actions {
+  .modal-actions,
+  .auth-actions {
     width: 100%;
   }
 
   .calendar-tabs > button,
   .calendar-nav > button,
-  .modal-actions > button {
+  .modal-actions > button,
+  .auth-actions > button {
     flex: 1 1 0;
   }
 
