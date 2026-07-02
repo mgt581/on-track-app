@@ -18,12 +18,6 @@ const VIEW_LABELS = {
   timeGridDay: 'Day'
 };
 
-// Calendar zoom constants
-const CAL_ZOOM_MIN = 0.55;
-const CAL_ZOOM_MAX = 2.4;
-const CAL_ZOOM_DEFAULT = 1.0;
-const CAL_ZOOM_KEY = 'cal-zoom';
-
 const defaultServices = [
   { id: crypto.randomUUID(), name: 'Teeth Whitening', color: '#2f80ed' },
   { id: crypto.randomUUID(), name: 'Construction', color: '#8d99ae' }
@@ -34,9 +28,9 @@ let calendar = null;
 let currentUser = null;
 let editingServiceId = null;
 let activeEntryId = null;
+let focusedCalendarDate = formatDateInput(new Date());
 let reminderTimers = new Map();
 let remoteUnsubscribe = () => {};
-let calendarZoom = parseFloat(sessionStorage.getItem(CAL_ZOOM_KEY)) || CAL_ZOOM_DEFAULT;
 
 const appShell = document.getElementById('app-shell');
 const appMessage = document.getElementById('app-message');
@@ -159,7 +153,7 @@ function registerEvents() {
 
   calendarTabs.forEach((tab) => {
     tab.addEventListener('click', () => {
-      calendar.changeView(tab.dataset.view);
+      changeCalendarView(tab.dataset.view);
       updateCalendarToolbar();
     });
   });
@@ -206,6 +200,7 @@ function registerEvents() {
 function initializeCalendar() {
   calendar = new FullCalendar.Calendar(calendarEl, {
     initialView: window.innerWidth <= 640 ? 'timeGridDay' : 'dayGridMonth',
+    initialDate: focusedCalendarDate,
     editable: true,
     selectable: true,
     selectMirror: true,
@@ -234,16 +229,17 @@ function initializeCalendar() {
     dayHeaderFormat: {
       weekday: window.innerWidth <= 640 ? 'narrow' : 'short'
     },
+    dayCellClassNames: getFocusedDayClassNames,
+    eventContent: renderCalendarEventContent,
     select: handleCalendarSelect,
     dateClick: handleCalendarDateClick,
     eventClick: ({ event }) => openEntryModal(event.id),
     eventDrop: ({ event }) => updateEntryFromCalendarEvent(event),
     eventResize: ({ event }) => updateEntryFromCalendarEvent(event),
-    datesSet: updateCalendarToolbar
+    datesSet: handleCalendarDatesSet
   });
 
   calendar.render();
-  initCalendarZoom();
 }
 
 async function loadInitialState() {
@@ -459,12 +455,17 @@ function handleScheduleListClick(event) {
 
 function handleCalendarDateClick(info) {
   const clickedDate = info.date;
+  setFocusedCalendarDate(clickedDate);
   populateEntryFormDate(clickedDate, info.allDay);
+  if (calendar?.view.type === 'dayGridMonth') {
+    changeCalendarView('timeGridDay', clickedDate);
+  }
 }
 
 function handleCalendarSelect(info) {
   const selectionStart = info.start;
   const selectionEnd = info.end || new Date(selectionStart.getTime() + DEFAULT_DURATION_MINUTES * 60000);
+  setFocusedCalendarDate(selectionStart);
   populateEntryFormDate(selectionStart, info.allDay);
   entryDuration.value = normalizeDuration((selectionEnd.getTime() - selectionStart.getTime()) / 60000);
   entryTitle.focus();
@@ -670,11 +671,41 @@ function buildCalendarEvents() {
       title: entry.title,
       start,
       end: new Date(start.getTime() + normalizeDuration(entry.durationMinutes) * 60000),
+      allDay: false,
       backgroundColor: color,
       borderColor: color,
       textColor: getContrastColor(color)
     };
   });
+}
+
+function renderCalendarEventContent(arg) {
+  const content = document.createElement('div');
+  content.className = 'calendar-event-content';
+
+  if (arg.timeText) {
+    const time = document.createElement('div');
+    time.className = 'calendar-event-time';
+    time.textContent = arg.timeText;
+    content.appendChild(time);
+  }
+
+  const title = document.createElement('div');
+  title.className = 'calendar-event-title';
+  title.textContent = arg.event.title;
+  content.appendChild(title);
+  return { domNodes: [content] };
+}
+
+function getFocusedDayClassNames(arg) {
+  return formatDateInput(arg.date) === focusedCalendarDate ? ['focused-calendar-day'] : [];
+}
+
+function handleCalendarDatesSet() {
+  if (calendar) {
+    setFocusedCalendarDate(calendar.getDate());
+  }
+  updateCalendarToolbar();
 }
 
 function updateCalendarToolbar() {
@@ -690,6 +721,22 @@ function updateCalendarToolbar() {
     tab.textContent = VIEW_LABELS[tab.dataset.view] || tab.textContent;
   });
   calendarToday.textContent = 'Today';
+}
+
+function setFocusedCalendarDate(date) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+    return;
+  }
+  focusedCalendarDate = formatDateInput(date);
+}
+
+function changeCalendarView(view, date = focusedCalendarDate) {
+  if (!calendar) {
+    return;
+  }
+  const targetDate = date instanceof Date ? formatDateInput(date) : date;
+  setFocusedCalendarDate(date instanceof Date ? date : new Date(`${targetDate}T12:00:00`));
+  calendar.changeView(view, targetDate);
 }
 
 function populateServiceOptions(select, selectedId) {
@@ -926,97 +973,4 @@ function escapeHtml(value) {
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;');
-}
-
-// ─── Calendar pinch-to-zoom ────────────────────────────────────────────────
-
-function applyCalendarZoom() {
-  const wrap = document.getElementById('calendar-zoom-wrap');
-  if (!wrap) return;
-
-  calendarZoom = Math.max(CAL_ZOOM_MIN, Math.min(CAL_ZOOM_MAX, calendarZoom));
-
-  // Scale the calendar; width counter-scales so content fills at zoom < 1
-  // and overflows (enabling scroll) at zoom > 1.
-  wrap.style.transform = `scale(${calendarZoom})`;
-  wrap.style.width = calendarZoom < 1 ? `${(100 / calendarZoom).toFixed(4)}%` : '100%';
-
-  // Persist across navigation within the page session
-  try {
-    sessionStorage.setItem(CAL_ZOOM_KEY, calendarZoom);
-  } catch {
-    // Ignore storage errors (e.g. private-browsing quota).
-  }
-}
-
-function initCalendarZoom() {
-  const shell = document.querySelector('.calendar-shell');
-  if (!shell || !('ontouchstart' in window)) {
-    // Apply stored zoom even without touch support (for non-touch testing)
-    applyCalendarZoom();
-    return;
-  }
-
-  // Apply initial zoom from session
-  applyCalendarZoom();
-
-  let startDist = 0;
-  let startZoom = calendarZoom;
-  let isPinching = false;
-  let lastTapTime = 0;
-  let rafId = null;
-
-  function getTouchDist(touches) {
-    const dx = touches[1].clientX - touches[0].clientX;
-    const dy = touches[1].clientY - touches[0].clientY;
-    return Math.sqrt(dx * dx + dy * dy);
-  }
-
-  function onTouchStart(e) {
-    if (e.touches.length === 2) {
-      isPinching = true;
-      startDist = getTouchDist(e.touches);
-      startZoom = calendarZoom;
-      // Prevent browser page-zoom during pinch
-      e.preventDefault();
-    } else if (e.touches.length === 1 && !isPinching) {
-      const now = Date.now();
-      if (now - lastTapTime < 300) {
-        // Double-tap: reset to default zoom
-        calendarZoom = CAL_ZOOM_DEFAULT;
-        applyCalendarZoom();
-        e.preventDefault();
-        lastTapTime = 0;
-      } else {
-        lastTapTime = now;
-      }
-    }
-  }
-
-  function onTouchMove(e) {
-    if (!isPinching || e.touches.length < 2) return;
-    // Prevent the page from scrolling while the user is pinching the calendar
-    e.preventDefault();
-
-    const dist = getTouchDist(e.touches);
-    calendarZoom = Math.max(CAL_ZOOM_MIN, Math.min(CAL_ZOOM_MAX, startZoom * (dist / startDist)));
-
-    if (!rafId) {
-      rafId = requestAnimationFrame(() => {
-        applyCalendarZoom();
-        rafId = null;
-      });
-    }
-  }
-
-  function onTouchEnd(e) {
-    if (e.touches.length < 2) {
-      isPinching = false;
-    }
-  }
-
-  shell.addEventListener('touchstart', onTouchStart, { passive: false });
-  shell.addEventListener('touchmove', onTouchMove, { passive: false });
-  shell.addEventListener('touchend', onTouchEnd);
-  shell.addEventListener('touchcancel', onTouchEnd);
 }
