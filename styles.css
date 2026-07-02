@@ -282,15 +282,6 @@ button:focus-visible {
   background: #fff;
   min-height: 640px;
   position: relative;
-  /* Disable browser pinch-zoom inside shell; JS handles it */
-  touch-action: pan-x pan-y;
-}
-
-/* Zoom container wrapping the FullCalendar element */
-#calendar-zoom-wrap {
-  transform-origin: top left;
-  will-change: transform;
-  width: 100%;
 }
 
 #calendar {
@@ -361,13 +352,31 @@ button:focus-visible {
   overflow: hidden;
 }
 
-.fc .fc-event-title,
-.fc .fc-event-time {
+.fc .calendar-event-content {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.fc .calendar-event-title,
+.fc .calendar-event-time {
   font-size: 0.95rem;
   font-weight: 700;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.fc .calendar-event-time {
+  opacity: 0.9;
+}
+
+.fc .focused-calendar-day {
+  background: rgba(47, 128, 237, 0.12);
+}
+
+.fc .focused-calendar-day .fc-daygrid-day-number {
+  color: #1d4ed8;
 }
 
 .fc .fc-timegrid-event .fc-event-main {
@@ -614,4 +623,3 @@ button:focus-visible {
     font-size: 16px; /* prevent iOS auto-zoom on focus */
   }
 }
-
