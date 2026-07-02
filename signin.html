@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sign In | ON TRACK</title>
+    <meta name="theme-color" content="#2f80ed" />
+    <link rel="icon" type="image/svg+xml" href="logo.svg" />
+    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png" />
+    <link rel="manifest" href="site.webmanifest" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="auth-page">
+    <header>
+      <h1 class="brand">
+        <img src="logo.svg" alt="ON TRACK" class="brand-logo" />
+      </h1>
+      <p class="subtitle">Sign in to keep your planner saved to your own account</p>
+    </header>
+
+    <main class="auth-shell">
+      <section class="card auth-card">
+        <div>
+          <h2>Sign in or create an account</h2>
+          <p class="auth-copy">Every account keeps its own services, bookings, and notes.</p>
+        </div>
+
+        <div id="auth-setup" class="status-text error" hidden></div>
+
+        <form id="auth-form" class="grid">
+          <label>
+            Email
+            <input id="auth-email" type="email" autocomplete="email" required placeholder="you@example.com" />
+          </label>
+          <label>
+            Password
+            <input id="auth-password" type="password" autocomplete="current-password" required minlength="6" placeholder="At least 6 characters" />
+          </label>
+          <label>
+            Confirm password (for sign up)
+            <input id="auth-confirm-password" type="password" autocomplete="new-password" minlength="6" placeholder="Repeat your password" />
+          </label>
+
+          <div class="auth-actions">
+            <button type="submit" value="signin">Sign in</button>
+            <button type="submit" class="btn-secondary" value="signup">Sign up</button>
+          </div>
+        </form>
+
+        <p id="auth-status" class="status-text" aria-live="polite">Enter your email and password to continue.</p>
+      </section>
+    </main>
+
+    <script type="module" src="auth.js"></script>
+  </body>
+</html>

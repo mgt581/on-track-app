@@ -16,9 +16,18 @@
         <img src="logo.svg" alt="ON TRACK" class="brand-logo" />
       </h1>
       <p class="subtitle">Simple, clean shared scheduling</p>
+      <div class="account-bar" aria-live="polite">
+        <span id="account-email" class="account-email">Checking account…</span>
+        <span id="sync-status" class="account-sync">Loading your planner…</span>
+        <button type="button" id="sign-out-btn" class="btn-secondary" hidden>Sign out</button>
+      </div>
     </header>
 
-    <main>
+    <section id="app-message" class="card status-card">
+      Loading your planner…
+    </section>
+
+    <main id="app-shell" hidden>
       <section class="card calendar-card">
         <div class="calendar-header">
           <div>
@@ -188,6 +197,6 @@
     <script src="vendor/fullcalendar/fullcalendar-interaction.global.min.js"></script>
     <script src="vendor/fullcalendar/fullcalendar-daygrid.global.min.js"></script>
     <script src="vendor/fullcalendar/fullcalendar-timegrid.global.min.js"></script>
-    <script src="app.js"></script>
+    <script type="module" src="app.js"></script>
   </body>
 </html>
