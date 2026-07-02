@@ -1,5 +1,5 @@
 import {
-  firebaseSetupError,
+  firebaseSetupError, 
   isFirebaseConfigured,
   loadStateForUser,
   observeAuthState,
