@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>ON TRACK</title>
     <script>
       if (!new URLSearchParams(window.location.search).has('app')) {
@@ -56,7 +56,9 @@
         </div>
 
         <div class="calendar-shell">
-          <div id="calendar"></div>
+          <div id="calendar-zoom-wrap">
+            <div id="calendar"></div>
+          </div>
         </div>
       </section>
 
