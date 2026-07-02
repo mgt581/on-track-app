@@ -1,56 +1,180 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Sign In | ON TRACK</title>
-    <meta name="theme-color" content="#2f80ed" />
-    <link rel="icon" type="image/svg+xml" href="logo.svg" />
-    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png" />
-    <link rel="manifest" href="site.webmanifest" />
-    <link rel="stylesheet" href="styles.css" />
-  </head>
-  <body class="auth-page">
-    <header>
-      <h1 class="brand">
-        <img src="logo.svg" alt="ON TRACK" class="brand-logo" />
-      </h1>
-      <p class="subtitle">Sign in to keep your planner saved to your own account</p>
-    </header>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign In or Create an Account</title>
+  <style>
+    body {
+      background-color: #0b1221;
+      color: #ffffff;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+    .auth-container {
+      background-color: #161e2e;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+      width: 100%;
+      max-width: 400px;
+    }
+    h2 {
+      margin-top: 0;
+      font-size: 24px;
+      color: #f9fafb;
+    }
+    p {
+      color: #9ca3af;
+      font-size: 14px;
+      margin-bottom: 24px;
+    }
+    .form-group {
+      margin-bottom: 16px;
+    }
+    label {
+      display: block;
+      margin-bottom: 6px;
+      font-weight: 500;
+      font-size: 14px;
+    }
+    input {
+      width: 100%;
+      padding: 10px;
+      background-color: #1f2937;
+      border: 1px solid #374151;
+      border-radius: 6px;
+      color: white;
+      box-sizing: border-box;
+      font-size: 16px;
+    }
+    input:focus {
+      outline: none;
+      border-color: #3b82f6;
+    }
+    .btn-group {
+      display: flex;
+      gap: 12px;
+      margin-top: 24px;
+    }
+    button {
+      flex: 1;
+      padding: 12px;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 16px;
+      cursor: pointer;
+      border: none;
+      transition: background-color 0.2s;
+    }
+    #sign-in-btn {
+      background-color: #1f2937;
+      color: white;
+      border: 1px solid #374151;
+    }
+    #sign-in-btn:hover {
+      background-color: #374151;
+    }
+    #sign-up-btn {
+      background-color: #e5e7eb;
+      color: #111827;
+    }
+    #sign-up-btn:hover {
+      background-color: #f3f4f6;
+    }
+  </style>
+</head>
+<body>
 
-    <main class="auth-shell">
-      <section class="card auth-card">
-        <div>
-          <h2>Sign in or create an account</h2>
-          <p class="auth-copy">Every account keeps its own services, bookings, and notes.</p>
-        </div>
+  <div class="auth-container">
+    <h2>Sign in or create an account</h2>
+    <p>Every account keeps its own services, bookings, and notes.</p>
 
-        <div id="auth-setup" class="status-text error" hidden></div>
+    <form id="auth-form">
+      <div class="form-group">
+        <label for="email">Email</label>
+        <input type="email" id="email" placeholder="you@example.com" required>
+      </div>
 
-        <form id="auth-form" class="grid">
-          <label>
-            Email
-            <input id="auth-email" type="email" autocomplete="email" required placeholder="you@example.com" />
-          </label>
-          <label>
-            Password
-            <input id="auth-password" type="password" autocomplete="current-password" required minlength="6" placeholder="At least 6 characters" />
-          </label>
-          <label>
-            Confirm password (for sign up)
-            <input id="auth-confirm-password" type="password" autocomplete="new-password" minlength="6" placeholder="Repeat your password" />
-          </label>
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input type="password" id="password" placeholder="At least 6 characters" required>
+      </div>
 
-          <div class="auth-actions">
-            <button type="submit" value="signin">Sign in</button>
-            <button type="submit" class="btn-secondary" value="signup">Sign up</button>
-          </div>
-        </form>
+      <div class="form-group">
+        <label for="confirm-password">Confirm password (for sign up)</label>
+        <input type="password" id="confirm-password" placeholder="Repeat your password">
+      </div>
 
-        <p id="auth-status" class="status-text" aria-live="polite">Enter your email and password to continue.</p>
-      </section>
-    </main>
+      <div class="btn-group">
+        <button type="button" id="sign-in-btn">Sign in</button>
+        <button type="button" id="sign-up-btn">Sign up</button>
+      </div>
+    </form>
+  </div>
 
-    <script type="module" src="auth.js"></script>
-  </body>
+  <script type="module">
+    import { signInWithEmail, signUpWithEmail, observeAuthState } from './firebase.js';
+
+    // Elements
+    const emailInput = document.getElementById('email');
+    const passwordInput = document.getElementById('password');
+    const confirmPasswordInput = document.getElementById('confirm-password');
+    const signInBtn = document.getElementById('sign-in-btn');
+    const signUpBtn = document.getElementById('sign-up-btn');
+
+    // 1. If a user is already logged in, redirect them immediately to index.html
+    observeAuthState((user) => {
+      if (user) {
+        window.location.href = 'index.html';
+      }
+    });
+
+    // 2. Handle Sign In Action
+    signInBtn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      
+      if (!emailInput.value || !passwordInput.value) {
+        alert('Please fill out both Email and Password fields.');
+        return;
+      }
+
+      try {
+        await signInWithEmail(emailInput.value, passwordInput.value);
+        // Success: The observeAuthState listener above will handle the automatic redirect
+      } catch (error) {
+        alert(`Sign In Error: ${error.message}`);
+      }
+    });
+
+    // 3. Handle Sign Up Action
+    signUpBtn.addEventListener('click', async (e) => {
+      e.preventDefault();
+
+      if (!emailInput.value || !passwordInput.value) {
+        alert('Please fill out both Email and Password fields to register.');
+        return;
+      }
+
+      if (passwordInput.value !== confirmPasswordInput.value) {
+        alert('Passwords do not match! Please confirm your password.');
+        return;
+      }
+
+      try {
+        await signUpWithEmail(emailInput.value, passwordInput.value);
+        // Success: Automatic redirect via the observer state change
+      } catch (error) {
+        alert(`Sign Up Error: ${error.message}`);
+      }
+    });
+  </script>
+
+</body>
 </html>
