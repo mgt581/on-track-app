@@ -35,6 +35,43 @@
       font-size: 14px;
       margin-bottom: 24px;
     }
+    .auth-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: #93c5fd;
+      font-size: 13px;
+      margin-bottom: 16px;
+      min-height: 20px;
+    }
+    .auth-status:empty {
+      margin-bottom: 0;
+    }
+    .auth-error {
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.45);
+      color: #fecaca;
+      border-radius: 6px;
+      padding: 10px 12px;
+      font-size: 14px;
+      margin-bottom: 12px;
+    }
+    .spinner {
+      width: 12px;
+      height: 12px;
+      border-radius: 9999px;
+      border: 2px solid #334155;
+      border-top-color: #60a5fa;
+      animation: spin 0.8s linear infinite;
+      flex: 0 0 auto;
+    }
+    .spinner.hidden {
+      display: none;
+    }
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
     .form-group {
       margin-bottom: 16px;
     }
@@ -95,6 +132,11 @@
   <div class="auth-container">
     <h2>Sign in or create an account</h2>
     <p>Every account keeps its own services, bookings, and notes.</p>
+    <div id="auth-status" class="auth-status" aria-live="polite">
+      <span id="auth-spinner" class="spinner" aria-hidden="true"></span>
+      <span id="auth-status-text">Checking your session…</span>
+    </div>
+    <div id="auth-error" class="auth-error" role="alert" aria-live="assertive" hidden></div>
 
     <form id="auth-form">
       <div class="form-group">
@@ -120,7 +162,7 @@
   </div>
 
   <script type="module">
-    import { signInWithEmail, signUpWithEmail, observeAuthState } from './firebase.js';
+    import { signInWithEmail, signUpWithEmail, observeAuthState } from './auth.js';
 
     // Elements
     const emailInput = document.getElementById('email');
@@ -128,50 +170,79 @@
     const confirmPasswordInput = document.getElementById('confirm-password');
     const signInBtn = document.getElementById('sign-in-btn');
     const signUpBtn = document.getElementById('sign-up-btn');
+    const authStatusText = document.getElementById('auth-status-text');
+    const authSpinner = document.getElementById('auth-spinner');
+    const authError = document.getElementById('auth-error');
+    let authStateChecked = false;
 
-    // 1. If a user is already logged in, redirect them immediately to index.html
+    function setAuthBusy(message, busy) {
+      authStatusText.textContent = message;
+      authSpinner.classList.toggle('hidden', !busy);
+      signInBtn.disabled = busy;
+      signUpBtn.disabled = busy;
+    }
+
+    function setAuthError(message) {
+      authError.textContent = message;
+      authError.hidden = !message;
+    }
+
+    // 1. If a user is already logged in, redirect them immediately to the app page
     observeAuthState((user) => {
       if (user) {
-        window.location.href = 'index.html';
+        setAuthBusy('Redirecting you to your planner…', true);
+        window.location.href = 'index.html?app=1';
+        return;
+      }
+
+      if (!authStateChecked) {
+        authStateChecked = true;
+        setAuthBusy('', false);
       }
     });
 
     // 2. Handle Sign In Action
     signInBtn.addEventListener('click', async (e) => {
       e.preventDefault();
+      setAuthError('');
       
       if (!emailInput.value || !passwordInput.value) {
-        alert('Please fill out both Email and Password fields.');
+        setAuthError('Please fill out both Email and Password fields.');
         return;
       }
 
       try {
+        setAuthBusy('Signing in…', true);
         await signInWithEmail(emailInput.value, passwordInput.value);
         // Success: The observeAuthState listener above will handle the automatic redirect
       } catch (error) {
-        alert(`Sign In Error: ${error.message}`);
+        setAuthBusy('', false);
+        setAuthError(`Sign in error: ${error.message}`);
       }
     });
 
     // 3. Handle Sign Up Action
     signUpBtn.addEventListener('click', async (e) => {
       e.preventDefault();
+      setAuthError('');
 
       if (!emailInput.value || !passwordInput.value) {
-        alert('Please fill out both Email and Password fields to register.');
+        setAuthError('Please fill out both Email and Password fields to register.');
         return;
       }
 
       if (passwordInput.value !== confirmPasswordInput.value) {
-        alert('Passwords do not match! Please confirm your password.');
+        setAuthError('Passwords do not match. Please confirm your password.');
         return;
       }
 
       try {
+        setAuthBusy('Creating your account…', true);
         await signUpWithEmail(emailInput.value, passwordInput.value);
         // Success: Automatic redirect via the observer state change
       } catch (error) {
-        alert(`Sign Up Error: ${error.message}`);
+        setAuthBusy('', false);
+        setAuthError(`Sign up error: ${error.message}`);
       }
     });
   </script>

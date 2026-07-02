@@ -1,5 +1,3 @@
-Here is the complete, updated copy of your **app.js** file with the import targeting corrected to look at ./auth.js instead of ./firebase.js.
-```javascript
 import {
   firebaseSetupError, 
   isFirebaseConfigured,
@@ -919,5 +917,3 @@ function escapeHtml(value) {
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;');
 }
-
-```
