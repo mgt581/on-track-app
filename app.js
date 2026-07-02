@@ -1,3 +1,5 @@
+Here is the complete, updated copy of your **app.js** file with the import targeting corrected to look at ./auth.js instead of ./firebase.js.
+```javascript
 import {
   firebaseSetupError, 
   isFirebaseConfigured,
@@ -7,7 +9,7 @@ import {
   signOutUser,
   subscribeToUserState,
   waitForInitialAuthState
-} from './firebase.js';
+} from './auth.js';
 
 const STORAGE_KEY = 'on-track-calendar-v1';
 const channel = 'BroadcastChannel' in window ? new BroadcastChannel('on-track-sync') : null;
@@ -917,3 +919,5 @@ function escapeHtml(value) {
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;');
 }
+
+```
