@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="ON TRACK">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2f80ed" />
+      <stop offset="100%" stop-color="#1f5fbf" />
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)" />
+  <circle cx="256" cy="192" r="102" fill="none" stroke="#ffffff" stroke-width="28" opacity="0.18" />
+  <path d="M198 196l36 36 80-80" fill="none" stroke="#ffffff" stroke-width="34" stroke-linecap="round" stroke-linejoin="round" />
+  <rect x="138" y="320" width="236" height="24" rx="12" fill="#ffffff" opacity="0.92" />
+  <rect x="168" y="364" width="176" height="18" rx="9" fill="#ffffff" opacity="0.7" />
+  <text x="256" y="444" fill="#ffffff" font-family="Arial, Helvetica, sans-serif" font-size="56" font-weight="700" text-anchor="middle" letter-spacing="6">ON TRACK</text>
+</svg>
