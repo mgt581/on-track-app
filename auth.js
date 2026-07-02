@@ -1,93 +1,112 @@
+// Import the functions you need from the SDKs you need via CDN
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js';
 import {
-  firebaseSetupError,
-  isFirebaseConfigured,
-  signInWithEmail,
-  signUpWithEmail,
-  waitForInitialAuthState
-} from './firebase.js';
+  createUserWithEmailAndPassword,
+  getAuth,
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  signOut
+} from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js';
+import {
+  doc,
+  getDoc,
+  getFirestore,
+  onSnapshot,
+  serverTimestamp,
+  setDoc
+} from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js';
 
-const authForm = document.getElementById('auth-form');
-const authEmail = document.getElementById('auth-email');
-const authPassword = document.getElementById('auth-password');
-const authConfirmPassword = document.getElementById('auth-confirm-password');
-const authStatus = document.getElementById('auth-status');
-const authSetup = document.getElementById('auth-setup');
+// Hardcoded public configuration block so GitHub Pages has access instantly
+const firebaseConfig = {
+  apiKey: "AIzaSyCO3O5GwiUiOY6h787quLG5EOYWaHngAG8",
+  authDomain: "on-track-73a59.firebaseapp.com",
+  projectId: "on-track-73a59",
+  storageBucket: "on-track-73a59.firebasestorage.app",
+  messagingSenderId: "884731352316",
+  appId: "1:884731352316:web:891332370b5f199b88f379",
+  measurementId: "G-GR7MK86PDG"
+};
 
-initialize();
+// Flags for the rest of your UI scripts to check
+const firebaseSetupError = '';
+const isFirebaseConfigured = true;
 
-async function initialize() {
-  if (!isFirebaseConfigured) {
-    authForm.hidden = true;
-    authSetup.hidden = false;
-    authSetup.textContent = firebaseSetupError;
-    authStatus.textContent = 'Finish Firebase setup, then reload this page.';
-    authStatus.classList.add('error');
-    return;
+// Initialize Firebase Core services
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+export { auth, db, firebaseSetupError, isFirebaseConfigured };
+
+export function observeAuthState(callback) {
+  if (!auth) {
+    callback(null);
+    return () => {};
   }
-
-  const user = await waitForInitialAuthState();
-  if (user) {
-    window.location.replace('index.html');
-    return;
-  }
-
-  authForm.addEventListener('submit', handleAuthSubmit);
+  return onAuthStateChanged(auth, callback);
 }
 
-async function handleAuthSubmit(event) {
-  event.preventDefault();
-
-  const mode = event.submitter?.value === 'signup' ? 'signup' : 'signin';
-  const email = authEmail.value.trim();
-  const password = authPassword.value;
-  const confirmPassword = authConfirmPassword.value;
-
-  if (mode === 'signup' && password !== confirmPassword) {
-    setStatus('Passwords do not match.', true);
-    return;
+export function waitForInitialAuthState() {
+  if (!auth) {
+    return Promise.resolve(null);
   }
-
-  setStatus(mode === 'signup' ? 'Creating your account…' : 'Signing you in…');
-  setDisabled(true);
-
-  try {
-    if (mode === 'signup') {
-      await signUpWithEmail(email, password);
-    } else {
-      await signInWithEmail(email, password);
-    }
-    window.location.replace('index.html');
-  } catch (error) {
-    setStatus(getAuthErrorMessage(error), true);
-    setDisabled(false);
-  }
-}
-
-function setStatus(message, isError = false) {
-  authStatus.textContent = message;
-  authStatus.classList.toggle('error', isError);
-}
-
-function setDisabled(disabled) {
-  authForm.querySelectorAll('input, button').forEach((element) => {
-    element.disabled = disabled;
+  return new Promise((resolve) => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      unsubscribe();
+      resolve(user);
+    });
   });
 }
 
-function getAuthErrorMessage(error) {
-  switch (error?.code) {
-    case 'auth/email-already-in-use':
-      return 'That email already has an account. Try signing in instead.';
-    case 'auth/invalid-credential':
-    case 'auth/invalid-login-credentials':
-    case 'auth/wrong-password':
-    case 'auth/user-not-found':
-      return 'Email or password is incorrect.';
-    case 'auth/weak-password':
-      return 'Use a stronger password with at least 6 characters.';
-    case 'auth/invalid-email':
-      return 'Enter a valid email address.';
-    default:
-      return error?.message || 'Unable to sign in right now.';
+export async function signInWithEmail(email, password) {
+  if (!auth) {
+    throw new Error('Firebase auth is not configured.');
   }
+  return signInWithEmailAndPassword(auth, email, password);
+}
+
+export async function signUpWithEmail(email, password) {
+  if (!auth) {
+    throw new Error('Firebase auth is not configured.');
+  }
+  return createUserWithEmailAndPassword(auth, email, password);
+}
+
+export async function signOutUser() {
+  if (!auth) {
+    return;
+  }
+  await signOut(auth);
+}
+
+export async function loadStateForUser(userId) {
+  if (!db) {
+    return null;
+  }
+  const snapshot = await getDoc(doc(db, 'users', userId, 'app', 'planner'));
+  if (!snapshot.exists()) {
+    return null;
+  }
+  return snapshot.data()?.state ?? null;
+}
+
+export function subscribeToUserState(userId, callback, onError) {
+  if (!db) {
+    return () => {};
+  }
+  return onSnapshot(
+    doc(db, 'users', userId, 'app', 'planner'),
+    (snapshot) => callback(snapshot.exists() ? snapshot.data()?.state ?? null : null),
+    onError
+  );
+}
+
+export async function saveStateForUser(userId, state) {
+  if (!db) {
+    return;
+  }
+  await setDoc(doc(db, 'users', userId, 'app', 'planner'), {
+    state,
+    updatedAt: serverTimestamp()
+  });
 }
