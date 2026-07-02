@@ -12,7 +12,8 @@ const pageSignOutBtn = document.getElementById('page-sign-out-btn');
 const signedInEmail = document.getElementById('signed-in-email');
 
 if (!firebaseClient?.auth) {
-  setStatus('Firebase auth is not available. Reload the page and try again.', 'error');
+  setStatus(window.onTrackFirebaseError || 'Firebase auth is not available. Reload the page and try again.', 'error');
+  setBusy(true);
 } else {
   firebaseClient.auth.onAuthStateChanged((user) => {
     const isSignedIn = Boolean(user);

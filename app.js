@@ -80,8 +80,8 @@ if (firebaseClient?.auth) {
     }
   });
 } else {
-  document.body.dataset.authReady = 'true';
-  bootstrapApp();
+  console.error(window.onTrackFirebaseError || 'Firebase auth is not configured.');
+  window.location.href = SIGN_IN_PAGE;
 }
 
 function bootstrapApp() {

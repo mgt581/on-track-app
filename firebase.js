@@ -1,19 +1,24 @@
-const firebaseConfig = {
-  apiKey: 'AIzaSyCO3O5GwiUiOY6h787quLG5EOYWaHngAG8',
-  authDomain: 'on-track-73a59.firebaseapp.com',
-  projectId: 'on-track-73a59',
-  storageBucket: 'on-track-73a59.firebasestorage.app',
-  messagingSenderId: '884731352316',
-  appId: '1:884731352316:web:891332370b5f199b88f379',
-  measurementId: 'G-GR7MK86PDG'
-};
+const firebaseConfig = window.ON_TRACK_FIREBASE_CONFIG;
+const requiredFirebaseKeys = ['apiKey', 'authDomain', 'projectId', 'appId'];
+const missingFirebaseKeys = requiredFirebaseKeys.filter((key) => {
+  const value = firebaseConfig?.[key];
+  return typeof value !== 'string' || !value.trim();
+});
 
-const app = firebase.apps.length ? firebase.app() : firebase.initializeApp(firebaseConfig);
-const auth = firebase.auth();
-const googleProvider = new firebase.auth.GoogleAuthProvider();
+window.onTrackFirebase = null;
+window.onTrackFirebaseError = '';
 
-window.onTrackFirebase = {
-  app,
-  auth,
-  googleProvider
-};
+if (missingFirebaseKeys.length) {
+  window.onTrackFirebaseError = `Firebase config is missing: ${missingFirebaseKeys.join(', ')}.`;
+  console.error(window.onTrackFirebaseError);
+} else {
+  const app = firebase.apps.length ? firebase.app() : firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
+  const googleProvider = new firebase.auth.GoogleAuthProvider();
+
+  window.onTrackFirebase = {
+    app,
+    auth,
+    googleProvider
+  };
+}
