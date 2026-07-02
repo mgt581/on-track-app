@@ -101,16 +101,18 @@ async function initialize() {
   registerEvents();
   resetServiceForm();
   updateAccountSummary('Loading your planner…');
+  state = loadCachedState();
+  render();
+  hideMessage();
+  appShell.hidden = false;
   try {
     await loadInitialState();
     syncStatus.textContent = 'Planner synced to your account.';
-    hideMessage();
-    appShell.hidden = false;
   } catch {
-    showMessage('Could not load your planner. Check your Firebase setup and Firestore rules.', true);
-    syncStatus.textContent = 'Planner sync failed.';
-    signOutBtn.hidden = false;
-    return;
+    state = loadCachedState();
+    render();
+    showMessage('Cloud sync failed. Using the planner saved on this device instead.', true);
+    syncStatus.textContent = 'Using local planner. Cloud sync failed.';
   }
 
   observeAuthState((nextUser) => {
