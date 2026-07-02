@@ -514,10 +514,7 @@ function updateCalendarToolbar() {
     tab.classList.toggle('active', isActive);
     tab.setAttribute('aria-selected', String(isActive));
   });
-
-  calendarToday.textContent = window.innerWidth <= 640
-    ? VIEW_LABELS[calendar.view.type] || 'Today'
-    : 'Today';
+  calendarToday.textContent = 'Today';
 }
 
 function populateServiceOptions(select, selectedId) {
