@@ -39,7 +39,17 @@ if (!firebaseClient?.auth) {
   });
 
   googleSignInBtn.addEventListener('click', async () => {
-    await handleAuthAction(() => firebaseClient.auth.signInWithPopup(firebaseClient.googleProvider), 'Opening Google sign-in…');
+    setBusy(true);
+    setStatus('Opening Google sign-in…', 'default');
+
+    try {
+      await firebaseClient.auth.signInWithPopup(firebaseClient.googleProvider);
+      window.location.href = 'index.html';
+    } catch (error) {
+      setStatus(error.message || 'Google sign-in failed. Please try again.', 'error');
+    } finally {
+      setBusy(false);
+    }
   });
 
   pageSignOutBtn.addEventListener('click', async () => {

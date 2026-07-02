@@ -519,7 +519,6 @@ button:focus-visible {
     width: 100%;
   }
 
-  .auth-actions,
   .calendar-tabs > button,
   .calendar-nav > button,
   .modal-actions > button {
