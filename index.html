@@ -19,6 +19,33 @@
     </header>
 
     <main>
+      <section class="card calendar-card">
+        <div class="calendar-header">
+          <div>
+            <h2>Shared Calendar</h2>
+            <p class="calendar-copy">See bookings together in a clean colour-coded view.</p>
+          </div>
+          <div class="calendar-nav">
+            <button type="button" class="btn-sm calendar-nav-btn" id="calendar-prev" aria-label="Previous range">←</button>
+            <button type="button" class="calendar-today-btn" id="calendar-today">Today</button>
+            <button type="button" class="btn-sm calendar-nav-btn" id="calendar-next" aria-label="Next range">→</button>
+          </div>
+        </div>
+
+        <div class="calendar-toolbar">
+          <h3 id="calendar-title" class="calendar-title"></h3>
+          <div class="calendar-tabs" role="tablist" aria-label="Calendar view">
+            <button type="button" class="view-tab active" data-view="dayGridMonth" role="tab" aria-selected="true">Month</button>
+            <button type="button" class="view-tab" data-view="timeGridWeek" role="tab" aria-selected="false">Week</button>
+            <button type="button" class="view-tab" data-view="timeGridDay" role="tab" aria-selected="false">Day</button>
+          </div>
+        </div>
+
+        <div class="calendar-shell">
+          <div id="calendar"></div>
+        </div>
+      </section>
+
       <section class="card">
         <h2>Add Service</h2>
         <form id="service-form" class="grid two-col">
@@ -56,6 +83,10 @@
             <input id="entry-time" type="time" required />
           </label>
           <label>
+            Duration (mins)
+            <input id="entry-duration" type="number" min="15" step="15" value="60" required />
+          </label>
+          <label>
             Reminder
             <select id="entry-reminder">
               <option value="0">At start time</option>
@@ -83,12 +114,80 @@
       </section>
 
       <section class="card">
-        <h2>Schedule</h2>
+        <h2>Upcoming Schedule</h2>
         <div id="empty-state">No bookings yet. Add your first slot.</div>
         <ul id="schedule-list" class="schedule-list"></ul>
       </section>
     </main>
 
+    <div id="entry-modal" class="modal hidden" aria-hidden="true">
+      <div class="modal-backdrop" data-close-modal="true"></div>
+      <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="entry-modal-title">
+        <div class="modal-header">
+          <h2 id="entry-modal-title">Edit Booking</h2>
+          <button type="button" class="modal-close" id="entry-modal-close" aria-label="Close booking editor">×</button>
+        </div>
+        <form id="entry-modal-form" class="grid two-col">
+          <label>
+            Title
+            <input id="modal-entry-title" required />
+          </label>
+          <label>
+            Service
+            <select id="modal-entry-service" required></select>
+          </label>
+          <label>
+            Day
+            <input id="modal-entry-date" type="date" required />
+          </label>
+          <label>
+            Time
+            <input id="modal-entry-time" type="time" required />
+          </label>
+          <label>
+            Duration (mins)
+            <input id="modal-entry-duration" type="number" min="15" step="15" required />
+          </label>
+          <label>
+            Colour
+            <input id="modal-entry-color" type="color" value="#2f80ed" />
+          </label>
+          <label>
+            Reminder
+            <select id="modal-entry-reminder">
+              <option value="0">At start time</option>
+              <option value="5">5 mins before</option>
+              <option value="10">10 mins before</option>
+              <option value="30">30 mins before</option>
+              <option value="60">1 hour before</option>
+              <option value="1440">1 day before</option>
+            </select>
+          </label>
+          <label>
+            Notify
+            <select id="modal-entry-notify">
+              <option value="both">Owner + Partner</option>
+              <option value="owner">Owner only</option>
+              <option value="partner">Partner only</option>
+            </select>
+          </label>
+          <label class="full-width">
+            Notes
+            <textarea id="modal-entry-notes" rows="4" placeholder="Extra details"></textarea>
+          </label>
+          <div class="modal-actions full-width">
+            <button type="submit">Save changes</button>
+            <button type="button" class="btn-secondary" id="modal-use-service-color">Use service colour</button>
+            <button type="button" class="btn-danger" id="modal-delete-entry">Delete booking</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script src="vendor/fullcalendar/fullcalendar-core.global.min.js"></script>
+    <script src="vendor/fullcalendar/fullcalendar-interaction.global.min.js"></script>
+    <script src="vendor/fullcalendar/fullcalendar-daygrid.global.min.js"></script>
+    <script src="vendor/fullcalendar/fullcalendar-timegrid.global.min.js"></script>
     <script src="app.js"></script>
   </body>
 </html>
