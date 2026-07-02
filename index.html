@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ON TRACK</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header>
+      <h1>ON TRACK</h1>
+      <p class="subtitle">Simple, clean shared scheduling</p>
+    </header>
+
+    <main>
+      <section class="card">
+        <h2>Add Service</h2>
+        <form id="service-form" class="grid two-col">
+          <label>
+            Service name
+            <input id="service-name" required placeholder="e.g. Teeth Whitening" />
+          </label>
+          <label>
+            Service color
+            <input id="service-color" type="color" value="#2f80ed" />
+          </label>
+          <button type="submit">Save service</button>
+        </form>
+        <ul id="service-list" class="chip-list"></ul>
+      </section>
+
+      <section class="card">
+        <h2>Add Booking / Task</h2>
+        <form id="entry-form" class="grid two-col">
+          <label>
+            Title
+            <input id="entry-title" required placeholder="Booking title" />
+          </label>
+          <label>
+            Service
+            <select id="entry-service" required></select>
+          </label>
+          <label>
+            Day
+            <input id="entry-date" type="date" required />
+          </label>
+          <label>
+            Time
+            <input id="entry-time" type="time" required />
+          </label>
+          <label>
+            Reminder
+            <select id="entry-reminder">
+              <option value="0">At start time</option>
+              <option value="5">5 mins before</option>
+              <option value="10">10 mins before</option>
+              <option value="30">30 mins before</option>
+              <option value="60">1 hour before</option>
+              <option value="1440">1 day before</option>
+            </select>
+          </label>
+          <label>
+            Notify
+            <select id="entry-notify">
+              <option value="both">Owner + Partner</option>
+              <option value="owner">Owner only</option>
+              <option value="partner">Partner only</option>
+            </select>
+          </label>
+          <label class="full-width">
+            Notes
+            <textarea id="entry-notes" rows="3" placeholder="Extra details"></textarea>
+          </label>
+          <button type="submit">Add to schedule</button>
+        </form>
+      </section>
+
+      <section class="card">
+        <h2>Schedule</h2>
+        <div id="empty-state">No bookings yet. Add your first slot.</div>
+        <ul id="schedule-list" class="schedule-list"></ul>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>
