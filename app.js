@@ -57,7 +57,8 @@ const entryForm = document.getElementById('entry-form');
 const entryTitle = document.getElementById('entry-title');
 const entryService = document.getElementById('entry-service');
 const entryDate = document.getElementById('entry-date');
-const entryTime = document.getElementById('entry-time');
+const entryHour = document.getElementById('entry-hour');
+const entryMinute = document.getElementById('entry-minute');
 const entryDuration = document.getElementById('entry-duration');
 const entryReminder = document.getElementById('entry-reminder');
 const entryNotify = document.getElementById('entry-notify');
@@ -78,7 +79,8 @@ const entryModalClose = document.getElementById('entry-modal-close');
 const modalEntryTitle = document.getElementById('modal-entry-title');
 const modalEntryService = document.getElementById('modal-entry-service');
 const modalEntryDate = document.getElementById('modal-entry-date');
-const modalEntryTime = document.getElementById('modal-entry-time');
+const modalEntryHour = document.getElementById('modal-entry-hour');
+const modalEntryMinute = document.getElementById('modal-entry-minute');
 const modalEntryDuration = document.getElementById('modal-entry-duration');
 const modalEntryColor = document.getElementById('modal-entry-color');
 const modalEntryReminder = document.getElementById('modal-entry-reminder');
@@ -108,6 +110,7 @@ async function initialize() {
   currentUser = user;
   initializeCalendar();
   registerEvents();
+  initializeTimeSelectors();
   resetServiceForm();
   updateAccountSummary('Loading your planner…');
   hideMessage();
@@ -433,7 +436,7 @@ async function handleEntrySubmit(event) {
   event.preventDefault();
 
   const service = findServiceById(entryService.value);
-  const dateTime = buildDateTime(entryDate.value, entryTime.value);
+  const dateTime = buildDateTime(entryDate.value, entryHour.value, entryMinute.value);
   const title = entryTitle.value.trim();
   const durationMinutes = normalizeDuration(entryDuration.value);
 
@@ -457,6 +460,7 @@ async function handleEntrySubmit(event) {
   sortEntries();
   persistAndRender();
   entryForm.reset();
+  setTimePickerValue(entryHour, entryMinute, new Date());
   entryDuration.value = DEFAULT_DURATION_MINUTES;
   maybeOfferNotificationPermission(state.entries[state.entries.length - 1]);
   syncReminders();
@@ -494,7 +498,7 @@ function handleEntryModalSubmit(event) {
 
   const entry = findEntryById(activeEntryId);
   const service = findServiceById(modalEntryService.value);
-  const dateTime = buildDateTime(modalEntryDate.value, modalEntryTime.value);
+  const dateTime = buildDateTime(modalEntryDate.value, modalEntryHour.value, modalEntryMinute.value);
   const title = modalEntryTitle.value.trim();
 
   if (!entry || !service || !title || !isValidDateTime(dateTime)) {
@@ -530,7 +534,7 @@ function handleDeleteEntry() {
 
 function populateEntryFormDate(date, allDay) {
   entryDate.value = formatDateInput(date);
-  entryTime.value = allDay ? '09:00' : formatTimeInput(date);
+  setTimePickerValue(entryHour, entryMinute, allDay ? new Date(`${formatDateInput(date)}T09:00:00`) : date);
 }
 
 function openEntryModal(entryId) {
@@ -546,7 +550,7 @@ function openEntryModal(entryId) {
   populateServiceOptions(modalEntryService, service?.id);
   modalEntryTitle.value = entry.title;
   modalEntryDate.value = formatDateInput(start);
-  modalEntryTime.value = formatTimeInput(start);
+  setTimePickerValue(modalEntryHour, modalEntryMinute, start);
   modalEntryDuration.value = normalizeDuration(entry.durationMinutes);
   modalEntryReminder.value = String(normalizeReminder(entry.reminderMinutes));
   modalEntryNotify.value = normalizeNotify(entry.notify);
@@ -872,8 +876,34 @@ function normalizeDuration(value) {
   return Math.max(15, Math.round(minutes / 15) * 15);
 }
 
-function buildDateTime(date, time) {
-  return `${date}T${time}:00`;
+function initializeTimeSelectors() {
+  populateTimeOptions(entryHour, 24);
+  populateTimeOptions(modalEntryHour, 24);
+  populateTimeOptions(entryMinute, 60);
+  populateTimeOptions(modalEntryMinute, 60);
+  setTimePickerValue(entryHour, entryMinute, new Date());
+  setTimePickerValue(modalEntryHour, modalEntryMinute, new Date());
+}
+
+function populateTimeOptions(select, count) {
+  select.innerHTML = '';
+  for (let index = 0; index < count; index += 1) {
+    const option = document.createElement('option');
+    option.value = String(index).padStart(2, '0');
+    option.textContent = option.value;
+    select.appendChild(option);
+  }
+}
+
+function setTimePickerValue(hourSelect, minuteSelect, date) {
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  hourSelect.value = hours;
+  minuteSelect.value = minutes;
+}
+
+function buildDateTime(date, hour, minute) {
+  return `${date}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00`;
 }
 
 function isValidDateTime(value) {

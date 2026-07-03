@@ -107,7 +107,11 @@
           </label>
           <label>
             Time
-            <input id="entry-time" type="time" required />
+            <div class="time-picker" aria-label="Booking time">
+              <select id="entry-hour" aria-label="Hour" required></select>
+              <span class="time-picker-separator" aria-hidden="true">:</span>
+              <select id="entry-minute" aria-label="Minute" required></select>
+            </div>
           </label>
           <label>
             Duration (mins)
@@ -169,7 +173,11 @@
           </label>
           <label>
             Time
-            <input id="modal-entry-time" type="time" required />
+            <div class="time-picker" aria-label="Booking time">
+              <select id="modal-entry-hour" aria-label="Hour" required></select>
+              <span class="time-picker-separator" aria-hidden="true">:</span>
+              <select id="modal-entry-minute" aria-label="Minute" required></select>
+            </div>
           </label>
           <label>
             Duration (mins)

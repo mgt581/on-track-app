@@ -144,6 +144,10 @@ button {
   border: 1px solid var(--line);
 }
 
+select {
+  min-width: 0;
+}
+
 button {
   background: var(--dark);
   color: #fff;
@@ -169,6 +173,24 @@ button:focus-visible {
 
 .full-width {
   grid-column: 1 / -1;
+}
+
+.time-picker {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.time-picker select {
+  width: 100%;
+  text-align: center;
+}
+
+.time-picker-separator {
+  color: var(--muted);
+  font-weight: 700;
+  line-height: 1;
 }
 
 .chip-list,
@@ -268,6 +290,10 @@ button:focus-visible {
 
   .notification-actions button {
     width: 100%;
+  }
+
+  .time-picker {
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   }
 }
 
