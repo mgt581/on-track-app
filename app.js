@@ -33,6 +33,9 @@ let focusedCalendarDate = formatDateInput(new Date());
 let reminderTimers = new Map();
 let alarmSound = null;
 let alarmAudioPrimed = false;
+let alarmAudioContext = null;
+let alarmAudioBuffer = null;
+let alarmAudioLoadPromise = null;
 let remoteUnsubscribe = () => {};
 let pendingNotificationPromptEntry = null;
 
@@ -1227,18 +1230,14 @@ async function primeAlarmAudio() {
   }
 
   try {
-    if (!alarmSound) {
-      alarmSound = new Audio(ALARM_SOUND_URL);
-      alarmSound.preload = 'auto';
-      alarmSound.volume = 1;
+    await loadAlarmAudioBuffer();
+    const context = getAlarmAudioContext();
+    if (context.state === 'suspended') {
+      await context.resume();
     }
-    const playPromise = alarmSound.play();
-    if (playPromise) {
-      await playPromise;
+    if (context.state === 'running') {
+      alarmAudioPrimed = true;
     }
-    alarmSound.pause();
-    alarmSound.currentTime = 0;
-    alarmAudioPrimed = true;
   } catch {
     // Some browsers still block sound until the user has interacted enough.
   }
@@ -1247,11 +1246,29 @@ async function primeAlarmAudio() {
 async function playAlarmSound() {
   try {
     await primeAlarmAudio();
+    if (alarmAudioBuffer) {
+      const context = getAlarmAudioContext();
+      if (context.state === 'suspended') {
+        await context.resume();
+      }
+
+      const source = context.createBufferSource();
+      const gain = context.createGain();
+      gain.gain.value = 1;
+      source.buffer = alarmAudioBuffer;
+      source.connect(gain);
+      gain.connect(context.destination);
+      source.start(0);
+      return;
+    }
+
     if (!alarmSound) {
       alarmSound = new Audio(ALARM_SOUND_URL);
       alarmSound.preload = 'auto';
       alarmSound.volume = 1;
+      alarmSound.playsInline = true;
     }
+
     alarmSound.currentTime = 0;
     const playPromise = alarmSound.play();
     if (playPromise) {
@@ -1260,6 +1277,38 @@ async function playAlarmSound() {
   } catch {
     // The notification still fires even if audio playback is blocked.
   }
+}
+
+function getAlarmAudioContext() {
+  if (!alarmAudioContext) {
+    const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextCtor) {
+      throw new Error('AudioContext is not supported.');
+    }
+    alarmAudioContext = new AudioContextCtor();
+  }
+
+  return alarmAudioContext;
+}
+
+async function loadAlarmAudioBuffer() {
+  if (alarmAudioBuffer) {
+    return alarmAudioBuffer;
+  }
+
+  if (!alarmAudioLoadPromise) {
+    alarmAudioLoadPromise = fetch(ALARM_SOUND_URL)
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`Failed to load alarm sound: ${response.status}`);
+        }
+        return response.arrayBuffer();
+      })
+      .then((arrayBuffer) => getAlarmAudioContext().decodeAudioData(arrayBuffer));
+  }
+
+  alarmAudioBuffer = await alarmAudioLoadPromise;
+  return alarmAudioBuffer;
 }
 
 function getContrastColor(hexColor) {
