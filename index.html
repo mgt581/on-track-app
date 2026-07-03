@@ -66,6 +66,13 @@
             <button type="button" class="view-tab" data-view="timeGridWeek" role="tab" aria-selected="false">Week</button>
             <button type="button" class="view-tab" data-view="timeGridDay" role="tab" aria-selected="false">Day</button>
           </div>
+          <div class="week-mode-switch" aria-label="Mobile week mode">
+            <span class="week-mode-label">Mobile week</span>
+            <div class="week-mode-toggle" aria-label="Choose mobile week layout">
+              <button type="button" class="week-mode-button active" data-week-mode="compact" aria-pressed="true">Compact Week</button>
+              <button type="button" class="week-mode-button" data-week-mode="comfort" aria-pressed="false">Comfort Week</button>
+            </div>
+          </div>
         </div>
 
         <div class="calendar-shell">
@@ -127,6 +134,7 @@
               <option value="60">1 hour before</option>
               <option value="1440">1 day before</option>
             </select>
+            <p class="field-hint reminder-hint">Alarms work while the app is open. For reliable background alerts, mobile app notifications are required.</p>
           </label>
           <label>
             Notify
@@ -197,6 +205,7 @@
               <option value="60">1 hour before</option>
               <option value="1440">1 day before</option>
             </select>
+            <p class="field-hint reminder-hint">Alarms work while the app is open. For reliable background alerts, mobile app notifications are required.</p>
           </label>
           <label>
             Notify

@@ -134,6 +134,13 @@ label {
   font-weight: 600;
 }
 
+.field-hint {
+  margin: 0.1rem 0 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+  font-weight: 500;
+}
+
 input,
 select,
 textarea,
@@ -295,6 +302,18 @@ button:focus-visible {
   .time-picker {
     grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   }
+
+  .field-hint {
+    font-size: 0.82rem;
+  }
+
+  .calendar-shell {
+    min-height: calc(100dvh - 220px);
+  }
+
+  .fc-timeGridThreeDay-view .fc-scrollgrid {
+    min-width: 860px;
+  }
 }
 
 .calendar-card {
@@ -328,6 +347,54 @@ button:focus-visible {
   font-size: 1.2rem;
 }
 
+.week-mode-switch {
+  display: none;
+  width: 100%;
+  gap: 0.45rem;
+  align-items: flex-start;
+}
+
+.week-mode-label {
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+}
+
+.week-mode-toggle {
+  display: inline-flex;
+  gap: 0.25rem;
+  padding: 0.2rem;
+  border-radius: 999px;
+  background: #eef2f7;
+  width: fit-content;
+}
+
+.week-mode-button {
+  border: none;
+  background: transparent;
+  color: var(--dark);
+  min-height: 42px;
+  padding: 0.45rem 0.8rem;
+  border-radius: 999px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  box-shadow: none;
+  transform: none;
+}
+
+.week-mode-button.active {
+  background: var(--dark);
+  color: #fff;
+}
+
+.week-mode-button:hover,
+.week-mode-button:focus-visible {
+  box-shadow: none;
+  transform: none;
+}
+
 .calendar-nav-btn,
 .calendar-today-btn,
 .view-tab,
@@ -355,10 +422,15 @@ button:focus-visible {
   margin-top: 1rem;
   border-radius: 18px;
   border: 1px solid #edf0f3;
-  overflow: hidden;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
   background: #fff;
   min-height: 640px;
   position: relative;
+  -webkit-overflow-scrolling: touch;
 }
 
 #calendar {
@@ -439,13 +511,25 @@ button:focus-visible {
 .fc .calendar-event-time {
   font-size: 0.95rem;
   font-weight: 700;
-  white-space: nowrap;
+  white-space: normal;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .fc .calendar-event-time {
   opacity: 0.9;
+  line-height: 1.1;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  text-overflow: clip;
+}
+
+.fc .calendar-event-title {
+  line-height: 1.15;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 .fc .focused-calendar-day {
@@ -458,6 +542,11 @@ button:focus-visible {
 
 .fc .fc-timegrid-event .fc-event-main {
   padding: 0.35rem 0.45rem;
+}
+
+.fc-timeGridThreeDay-view .fc-scrollgrid,
+.fc-timeGridWeek-view .fc-scrollgrid {
+  min-width: 760px;
 }
 
 .fc .fc-highlight {
@@ -628,6 +717,10 @@ button:focus-visible {
     gap: 0.4rem;
   }
 
+  .week-mode-switch {
+    display: grid;
+  }
+
   .calendar-copy {
     display: none;
   }
@@ -649,6 +742,10 @@ button:focus-visible {
   .view-tab {
     min-width: 0;
     font-size: 0.9rem;
+  }
+
+  .calendar-toolbar {
+    align-items: stretch;
   }
 
   .fc {

@@ -8,6 +8,7 @@ import {
   subscribeToUserState,
   waitForInitialAuthState
 } from './auth.js';
+import { createReminderEngine, scheduleNativeReminder } from './reminder-engine.js';
 
 const STORAGE_KEY = 'on-track-calendar-v1';
 const channel = 'BroadcastChannel' in window ? new BroadcastChannel('on-track-sync') : null;
@@ -18,6 +19,10 @@ const VIEW_LABELS = {
   timeGridWeek: 'Week',
   timeGridDay: 'Day'
 };
+const WEEK_MODE_COMPACT = 'compact';
+const WEEK_MODE_COMFORT = 'comfort';
+const MOBILE_WEEK_VIEW = 'timeGridThreeDay';
+const MOBILE_CALENDAR_BREAKPOINT = 640;
 
 const defaultServices = [
   { id: crypto.randomUUID(), name: 'Teeth Whitening', color: '#2f80ed' },
@@ -30,14 +35,9 @@ let currentUser = null;
 let editingServiceId = null;
 let activeEntryId = null;
 let focusedCalendarDate = formatDateInput(new Date());
-let reminderTimers = new Map();
-let alarmSound = null;
-let alarmAudioPrimed = false;
-let alarmAudioContext = null;
-let alarmAudioBuffer = null;
-let alarmAudioLoadPromise = null;
 let remoteUnsubscribe = () => {};
 let pendingNotificationPromptEntry = null;
+let mobileWeekMode = WEEK_MODE_COMPACT;
 
 const appShell = document.getElementById('app-shell');
 const appMessage = document.getElementById('app-message');
@@ -76,6 +76,7 @@ const calendarPrev = document.getElementById('calendar-prev');
 const calendarNext = document.getElementById('calendar-next');
 const calendarToday = document.getElementById('calendar-today');
 const calendarTabs = document.querySelectorAll('[data-view]');
+const weekModeButtons = document.querySelectorAll('[data-week-mode]');
 
 const entryModal = document.getElementById('entry-modal');
 const entryModalForm = document.getElementById('entry-modal-form');
@@ -92,6 +93,13 @@ const modalEntryNotify = document.getElementById('modal-entry-notify');
 const modalEntryNotes = document.getElementById('modal-entry-notes');
 const modalDeleteEntry = document.getElementById('modal-delete-entry');
 const modalUseServiceColor = document.getElementById('modal-use-service-color');
+const reminderEngine = createReminderEngine({
+  audioUrl: ALARM_SOUND_URL,
+  getServiceLabel: (serviceId) => findServiceById(serviceId)?.name || 'General',
+  parseLocalDateTime,
+  normalizeReminder,
+  formatDisplayDateTime
+});
 
 initialize();
 
@@ -112,8 +120,10 @@ async function initialize() {
   }
 
   currentUser = user;
+  mobileWeekMode = loadMobileWeekMode();
   initializeCalendar();
   registerEvents();
+  registerWeekModeEvents();
   initializeTimeSelectors();
   registerAlarmAudioPriming();
   resetServiceForm();
@@ -138,6 +148,14 @@ async function initialize() {
 function registerNotificationBannerEvents() {
   notificationBannerPrimary.addEventListener('click', handleNotificationBannerPrimaryClick);
   notificationBannerSecondary.addEventListener('click', handleNotificationBannerSecondaryClick);
+}
+
+function registerWeekModeEvents() {
+  weekModeButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      setMobileWeekMode(button.dataset.weekMode);
+    });
+  });
 }
 
 function registerEvents() {
@@ -211,7 +229,7 @@ function registerEvents() {
 
 function registerAlarmAudioPriming() {
   const prime = () => {
-    void primeAlarmAudio();
+    void reminderEngine.primeAlarmAudio();
   };
 
   document.addEventListener('pointerdown', prime, { once: true, passive: true });
@@ -221,7 +239,7 @@ function registerAlarmAudioPriming() {
 
 function initializeCalendar() {
   calendar = new FullCalendar.Calendar(calendarEl, {
-    initialView: window.innerWidth <= 640 ? 'timeGridDay' : 'dayGridMonth',
+    initialView: isMobileCalendar() ? getResponsiveWeekViewType() : 'dayGridMonth',
     initialDate: focusedCalendarDate,
     editable: true,
     selectable: true,
@@ -238,6 +256,13 @@ function initializeCalendar() {
     eventMinHeight: 36,
     dayMaxEventRows: 4,
     headerToolbar: false,
+    views: {
+      [MOBILE_WEEK_VIEW]: {
+        type: 'timeGrid',
+        duration: { days: 3 },
+        dateIncrement: { days: 3 }
+      }
+    },
     eventTimeFormat: {
       hour: '2-digit',
       minute: '2-digit',
@@ -249,7 +274,7 @@ function initializeCalendar() {
       hour12: false
     },
     dayHeaderFormat: {
-      weekday: window.innerWidth <= 640 ? 'narrow' : 'short'
+      weekday: 'short'
     },
     dayCellClassNames: getFocusedDayClassNames,
     eventContent: renderCalendarEventContent,
@@ -478,7 +503,7 @@ async function handleEntrySubmit(event) {
   setTimePickerValue(entryHour, entryMinute, new Date());
   entryDuration.value = DEFAULT_DURATION_MINUTES;
   maybeOfferNotificationPermission(state.entries[state.entries.length - 1]);
-  syncReminders();
+  void scheduleNativeReminder(state.entries[state.entries.length - 1]);
 }
 
 function handleScheduleListClick(event) {
@@ -534,6 +559,7 @@ function handleEntryModalSubmit(event) {
   sortEntries();
   persistAndRender();
   maybeOfferNotificationPermission(entry);
+  void scheduleNativeReminder(entry);
   closeEntryModal();
 }
 
@@ -633,7 +659,7 @@ function render() {
   updateCalendarToolbar();
   updateNotificationBanner();
   emptyState.style.display = state.entries.length ? 'none' : 'block';
-  syncReminders();
+  reminderEngine.syncReminders(state.entries);
 
   if (activeEntryId && !findEntryById(activeEntryId)) {
     closeEntryModal();
@@ -754,11 +780,12 @@ function updateCalendarToolbar() {
 
   calendarTitle.textContent = calendar.view.title;
   calendarTabs.forEach((tab) => {
-    const isActive = tab.dataset.view === calendar.view.type;
+    const isActive = tab.dataset.view === calendar.view.type || (tab.dataset.view === 'timeGridWeek' && isResponsiveWeekView(calendar.view.type));
     tab.classList.toggle('active', isActive);
     tab.setAttribute('aria-selected', String(isActive));
     tab.textContent = VIEW_LABELS[tab.dataset.view] || tab.textContent;
   });
+  updateWeekModeButtons();
   calendarToday.textContent = 'Today';
 }
 
@@ -775,7 +802,7 @@ function changeCalendarView(view, date = focusedCalendarDate) {
   }
   const targetDate = date instanceof Date ? formatDateInput(date) : date;
   setFocusedCalendarDate(date instanceof Date ? date : new Date(`${targetDate}T12:00:00`));
-  calendar.changeView(view, targetDate);
+  calendar.changeView(view === 'timeGridWeek' ? getResponsiveWeekViewType() : view, targetDate);
 }
 
 function populateServiceOptions(select, selectedId) {
@@ -889,6 +916,67 @@ function normalizeDuration(value) {
   }
 
   return Math.max(15, Math.round(minutes / 15) * 15);
+}
+
+function isMobileCalendar() {
+  return window.innerWidth <= MOBILE_CALENDAR_BREAKPOINT;
+}
+
+function getResponsiveWeekViewType() {
+  if (!isMobileCalendar()) {
+    return 'timeGridWeek';
+  }
+
+  return mobileWeekMode === WEEK_MODE_COMFORT ? MOBILE_WEEK_VIEW : 'timeGridWeek';
+}
+
+function isResponsiveWeekView(viewType) {
+  return viewType === 'timeGridWeek' || viewType === MOBILE_WEEK_VIEW;
+}
+
+function getWeekModeStorageKey() {
+  return `${STORAGE_KEY}:${currentUser?.uid || 'guest'}:week-mode`;
+}
+
+function loadMobileWeekMode() {
+  const savedMode = localStorage.getItem(getWeekModeStorageKey());
+  return savedMode === WEEK_MODE_COMFORT ? WEEK_MODE_COMFORT : WEEK_MODE_COMPACT;
+}
+
+function persistMobileWeekMode() {
+  localStorage.setItem(getWeekModeStorageKey(), mobileWeekMode);
+}
+
+function setMobileWeekMode(nextMode) {
+  const normalizedMode = nextMode === WEEK_MODE_COMFORT ? WEEK_MODE_COMFORT : WEEK_MODE_COMPACT;
+
+  if (normalizedMode === mobileWeekMode) {
+    return;
+  }
+
+  mobileWeekMode = normalizedMode;
+  persistMobileWeekMode();
+  if (calendar && isResponsiveWeekView(calendar.view.type)) {
+    const currentDate = calendar.getDate();
+    focusedCalendarDate = formatDateInput(currentDate);
+    calendar.destroy();
+    initializeCalendar();
+    renderCalendarEvents();
+  }
+
+  updateCalendarToolbar();
+}
+
+function updateWeekModeButtons() {
+  if (!weekModeButtons.length) {
+    return;
+  }
+
+  weekModeButtons.forEach((button) => {
+    const isActive = button.dataset.weekMode === mobileWeekMode;
+    button.classList.toggle('active', isActive);
+    button.setAttribute('aria-pressed', String(isActive));
+  });
 }
 
 function initializeTimeSelectors() {
@@ -1158,7 +1246,7 @@ async function handleNotificationBannerPrimaryClick() {
       clearWarningDismissed();
       dismissNotificationBanner();
       syncStatus.textContent = 'Notifications enabled for alarms.';
-      syncReminders();
+      reminderEngine.syncReminders(state.entries);
       return;
     }
 
@@ -1177,138 +1265,6 @@ async function handleNotificationBannerPrimaryClick() {
 function handleNotificationBannerSecondaryClick() {
   markPermissionPromptSeen();
   dismissNotificationBanner();
-}
-
-function syncReminders() {
-  reminderTimers.forEach((timerId) => clearTimeout(timerId));
-  reminderTimers.clear();
-
-  state.entries.forEach((entry) => {
-    const start = parseLocalDateTime(entry.dateTime).getTime();
-    const reminderTime = start - normalizeReminder(entry.reminderMinutes) * 60 * 1000;
-    const delay = reminderTime - Date.now();
-
-    if (delay <= 0 || delay > 2147483647) {
-      return;
-    }
-
-    const timerId = window.setTimeout(() => {
-      void triggerReminderAlert(entry);
-      reminderTimers.delete(entry.id);
-    }, delay);
-
-    reminderTimers.set(entry.id, timerId);
-  });
-}
-
-async function triggerReminderAlert(entry) {
-  const service = findServiceById(entry.serviceId);
-  const start = parseLocalDateTime(entry.dateTime);
-  const reminderMinutes = normalizeReminder(entry.reminderMinutes);
-  const reminderTime = new Date(start.getTime() - reminderMinutes * 60 * 1000);
-
-  await playAlarmSound();
-
-  if ('Notification' in window && Notification.permission === 'granted') {
-    new Notification('ON TRACK alarm', {
-      body: `${entry.title} (${service?.name || 'General'}) • Alarm: ${formatDisplayDateTime(reminderTime)} • Event: ${formatDisplayDateTime(start)}`,
-      icon: 'icon-192.png',
-      badge: 'icon-192.png',
-      tag: `alarm-${entry.id}`,
-      renotify: true
-    });
-  }
-
-  if (navigator.vibrate) {
-    navigator.vibrate([200, 100, 200]);
-  }
-}
-
-async function primeAlarmAudio() {
-  if (alarmAudioPrimed) {
-    return;
-  }
-
-  try {
-    await loadAlarmAudioBuffer();
-    const context = getAlarmAudioContext();
-    if (context.state === 'suspended') {
-      await context.resume();
-    }
-    if (context.state === 'running') {
-      alarmAudioPrimed = true;
-    }
-  } catch {
-    // Some browsers still block sound until the user has interacted enough.
-  }
-}
-
-async function playAlarmSound() {
-  try {
-    await primeAlarmAudio();
-    if (alarmAudioBuffer) {
-      const context = getAlarmAudioContext();
-      if (context.state === 'suspended') {
-        await context.resume();
-      }
-
-      const source = context.createBufferSource();
-      const gain = context.createGain();
-      gain.gain.value = 1;
-      source.buffer = alarmAudioBuffer;
-      source.connect(gain);
-      gain.connect(context.destination);
-      source.start(0);
-      return;
-    }
-
-    if (!alarmSound) {
-      alarmSound = new Audio(ALARM_SOUND_URL);
-      alarmSound.preload = 'auto';
-      alarmSound.volume = 1;
-      alarmSound.playsInline = true;
-    }
-
-    alarmSound.currentTime = 0;
-    const playPromise = alarmSound.play();
-    if (playPromise) {
-      await playPromise;
-    }
-  } catch {
-    // The notification still fires even if audio playback is blocked.
-  }
-}
-
-function getAlarmAudioContext() {
-  if (!alarmAudioContext) {
-    const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContextCtor) {
-      throw new Error('AudioContext is not supported.');
-    }
-    alarmAudioContext = new AudioContextCtor();
-  }
-
-  return alarmAudioContext;
-}
-
-async function loadAlarmAudioBuffer() {
-  if (alarmAudioBuffer) {
-    return alarmAudioBuffer;
-  }
-
-  if (!alarmAudioLoadPromise) {
-    alarmAudioLoadPromise = fetch(ALARM_SOUND_URL)
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error(`Failed to load alarm sound: ${response.status}`);
-        }
-        return response.arrayBuffer();
-      })
-      .then((arrayBuffer) => getAlarmAudioContext().decodeAudioData(arrayBuffer));
-  }
-
-  alarmAudioBuffer = await alarmAudioLoadPromise;
-  return alarmAudioBuffer;
 }
 
 function getContrastColor(hexColor) {
