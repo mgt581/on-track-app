@@ -102,19 +102,9 @@ async function initialize() {
   registerEvents();
   resetServiceForm();
   updateAccountSummary('Loading your planner…');
-  state = loadCachedState();
-  render();
   hideMessage();
   appShell.hidden = false;
-  try {
-    await loadInitialState();
-    syncStatus.textContent = 'Planner synced to your account.';
-  } catch {
-    state = loadCachedState();
-    render();
-    showMessage('Cloud sync failed. Using the planner saved on this device instead.', true);
-    syncStatus.textContent = 'Using local planner. Cloud sync failed.';
-  }
+  await loadInitialState();
 
   observeAuthState((nextUser) => {
     if (!nextUser) {
@@ -243,20 +233,29 @@ function initializeCalendar() {
 }
 
 async function loadInitialState() {
-  const cachedState = loadCachedState();
-  const remoteState = await loadStateForUser(currentUser.uid);
+  const cachedState = readCachedState();
+  state = cachedState || createDefaultState();
+  render();
 
-  if (remoteState) {
-    state = hydrateState(remoteState);
+  try {
+    const remoteState = await loadStateForUser(currentUser.uid);
+
+    if (remoteState) {
+      state = hydrateState(remoteState);
+      persistCachedState();
+    } else if (cachedState) {
+      await saveStateForUser(currentUser.uid, state);
+      persistCachedState();
+    } else {
+      state = createDefaultState();
+      persistCachedState();
+      await saveStateForUser(currentUser.uid, state);
+    }
+
+    syncStatus.textContent = 'Planner synced to your account.';
+  } catch {
     persistCachedState();
-  } else if (cachedState.entries.length || cachedState.services.length) {
-    state = cachedState;
-    await saveStateForUser(currentUser.uid, state);
-    persistCachedState();
-  } else {
-    state = createDefaultState();
-    await saveStateForUser(currentUser.uid, state);
-    persistCachedState();
+    syncStatus.textContent = 'Cloud sync is temporarily unavailable. Using the local backup for now.';
   }
 
   remoteUnsubscribe = subscribeToUserState(
@@ -277,7 +276,7 @@ async function loadInitialState() {
       syncStatus.textContent = 'Planner synced to your account.';
     },
     () => {
-      syncStatus.textContent = 'Unable to sync live updates right now.';
+      syncStatus.textContent = 'Cloud sync is temporarily unavailable. Changes are still saved locally.';
     }
   );
 
@@ -299,15 +298,19 @@ function createDefaultState() {
 }
 
 function loadCachedState() {
+  return readCachedState() || createDefaultState();
+}
+
+function readCachedState() {
   const saved = localStorage.getItem(getStorageKey());
   if (!saved) {
-    return createDefaultState();
+    return null;
   }
 
   try {
     return hydrateState(JSON.parse(saved));
   } catch {
-    return createDefaultState();
+    return null;
   }
 }
 
@@ -326,7 +329,7 @@ function persistAndRender() {
       syncStatus.textContent = 'Planner synced to your account.';
     })
     .catch(() => {
-      syncStatus.textContent = 'Saved locally. Cloud sync failed.';
+      syncStatus.textContent = 'Changes saved locally. Cloud sync will retry automatically.';
     });
   render();
 }
