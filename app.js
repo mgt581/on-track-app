@@ -12,6 +12,7 @@ import {
 const STORAGE_KEY = 'on-track-calendar-v1';
 const channel = 'BroadcastChannel' in window ? new BroadcastChannel('on-track-sync') : null;
 const DEFAULT_DURATION_MINUTES = 60;
+const ALARM_SOUND_URL = 'assets/alarmSoundfortrack.mp3';
 const VIEW_LABELS = {
   dayGridMonth: 'Month',
   timeGridWeek: 'Week',
@@ -30,10 +31,18 @@ let editingServiceId = null;
 let activeEntryId = null;
 let focusedCalendarDate = formatDateInput(new Date());
 let reminderTimers = new Map();
+let alarmSound = null;
+let alarmAudioPrimed = false;
 let remoteUnsubscribe = () => {};
+let pendingNotificationPromptEntry = null;
 
 const appShell = document.getElementById('app-shell');
 const appMessage = document.getElementById('app-message');
+const notificationBanner = document.getElementById('notification-banner');
+const notificationBannerTitle = document.getElementById('notification-banner-title');
+const notificationBannerText = document.getElementById('notification-banner-text');
+const notificationBannerPrimary = document.getElementById('notification-banner-primary');
+const notificationBannerSecondary = document.getElementById('notification-banner-secondary');
 const accountEmail = document.getElementById('account-email');
 const syncStatus = document.getElementById('sync-status');
 const signOutBtn = document.getElementById('sign-out-btn');
@@ -49,7 +58,8 @@ const entryForm = document.getElementById('entry-form');
 const entryTitle = document.getElementById('entry-title');
 const entryService = document.getElementById('entry-service');
 const entryDate = document.getElementById('entry-date');
-const entryTime = document.getElementById('entry-time');
+const entryHour = document.getElementById('entry-hour');
+const entryMinute = document.getElementById('entry-minute');
 const entryDuration = document.getElementById('entry-duration');
 const entryReminder = document.getElementById('entry-reminder');
 const entryNotify = document.getElementById('entry-notify');
@@ -70,7 +80,8 @@ const entryModalClose = document.getElementById('entry-modal-close');
 const modalEntryTitle = document.getElementById('modal-entry-title');
 const modalEntryService = document.getElementById('modal-entry-service');
 const modalEntryDate = document.getElementById('modal-entry-date');
-const modalEntryTime = document.getElementById('modal-entry-time');
+const modalEntryHour = document.getElementById('modal-entry-hour');
+const modalEntryMinute = document.getElementById('modal-entry-minute');
 const modalEntryDuration = document.getElementById('modal-entry-duration');
 const modalEntryColor = document.getElementById('modal-entry-color');
 const modalEntryReminder = document.getElementById('modal-entry-reminder');
@@ -100,10 +111,13 @@ async function initialize() {
   currentUser = user;
   initializeCalendar();
   registerEvents();
+  initializeTimeSelectors();
+  registerAlarmAudioPriming();
   resetServiceForm();
   updateAccountSummary('Loading your planner…');
   hideMessage();
   appShell.hidden = false;
+  registerNotificationBannerEvents();
   await loadInitialState();
 
   observeAuthState((nextUser) => {
@@ -116,6 +130,11 @@ async function initialize() {
       window.location.reload();
     }
   });
+}
+
+function registerNotificationBannerEvents() {
+  notificationBannerPrimary.addEventListener('click', handleNotificationBannerPrimaryClick);
+  notificationBannerSecondary.addEventListener('click', handleNotificationBannerSecondaryClick);
 }
 
 function registerEvents() {
@@ -185,6 +204,16 @@ function registerEvents() {
       }
     });
   }
+}
+
+function registerAlarmAudioPriming() {
+  const prime = () => {
+    void primeAlarmAudio();
+  };
+
+  document.addEventListener('pointerdown', prime, { once: true, passive: true });
+  document.addEventListener('keydown', prime, { once: true, passive: true });
+  document.addEventListener('touchstart', prime, { once: true, passive: true });
 }
 
 function initializeCalendar() {
@@ -280,6 +309,7 @@ async function loadInitialState() {
     }
   );
 
+  updateNotificationBanner();
   render();
 }
 
@@ -418,7 +448,7 @@ async function handleEntrySubmit(event) {
   event.preventDefault();
 
   const service = findServiceById(entryService.value);
-  const dateTime = buildDateTime(entryDate.value, entryTime.value);
+  const dateTime = buildDateTime(entryDate.value, entryHour.value, entryMinute.value);
   const title = entryTitle.value.trim();
   const durationMinutes = normalizeDuration(entryDuration.value);
 
@@ -442,8 +472,9 @@ async function handleEntrySubmit(event) {
   sortEntries();
   persistAndRender();
   entryForm.reset();
+  setTimePickerValue(entryHour, entryMinute, new Date());
   entryDuration.value = DEFAULT_DURATION_MINUTES;
-  await requestNotificationPermission();
+  maybeOfferNotificationPermission(state.entries[state.entries.length - 1]);
   syncReminders();
 }
 
@@ -479,7 +510,7 @@ function handleEntryModalSubmit(event) {
 
   const entry = findEntryById(activeEntryId);
   const service = findServiceById(modalEntryService.value);
-  const dateTime = buildDateTime(modalEntryDate.value, modalEntryTime.value);
+  const dateTime = buildDateTime(modalEntryDate.value, modalEntryHour.value, modalEntryMinute.value);
   const title = modalEntryTitle.value.trim();
 
   if (!entry || !service || !title || !isValidDateTime(dateTime)) {
@@ -499,6 +530,7 @@ function handleEntryModalSubmit(event) {
 
   sortEntries();
   persistAndRender();
+  maybeOfferNotificationPermission(entry);
   closeEntryModal();
 }
 
@@ -514,7 +546,7 @@ function handleDeleteEntry() {
 
 function populateEntryFormDate(date, allDay) {
   entryDate.value = formatDateInput(date);
-  entryTime.value = allDay ? '09:00' : formatTimeInput(date);
+  setTimePickerValue(entryHour, entryMinute, allDay ? new Date(`${formatDateInput(date)}T09:00:00`) : date);
 }
 
 function openEntryModal(entryId) {
@@ -530,7 +562,7 @@ function openEntryModal(entryId) {
   populateServiceOptions(modalEntryService, service?.id);
   modalEntryTitle.value = entry.title;
   modalEntryDate.value = formatDateInput(start);
-  modalEntryTime.value = formatTimeInput(start);
+  setTimePickerValue(modalEntryHour, modalEntryMinute, start);
   modalEntryDuration.value = normalizeDuration(entry.durationMinutes);
   modalEntryReminder.value = String(normalizeReminder(entry.reminderMinutes));
   modalEntryNotify.value = normalizeNotify(entry.notify);
@@ -596,6 +628,7 @@ function render() {
   renderScheduleList();
   renderCalendarEvents();
   updateCalendarToolbar();
+  updateNotificationBanner();
   emptyState.style.display = state.entries.length ? 'none' : 'block';
   syncReminders();
 
@@ -855,8 +888,34 @@ function normalizeDuration(value) {
   return Math.max(15, Math.round(minutes / 15) * 15);
 }
 
-function buildDateTime(date, time) {
-  return `${date}T${time}:00`;
+function initializeTimeSelectors() {
+  populateTimeOptions(entryHour, 24);
+  populateTimeOptions(modalEntryHour, 24);
+  populateTimeOptions(entryMinute, 60);
+  populateTimeOptions(modalEntryMinute, 60);
+  setTimePickerValue(entryHour, entryMinute, new Date());
+  setTimePickerValue(modalEntryHour, modalEntryMinute, new Date());
+}
+
+function populateTimeOptions(select, count) {
+  select.innerHTML = '';
+  for (let index = 0; index < count; index += 1) {
+    const option = document.createElement('option');
+    option.value = String(index).padStart(2, '0');
+    option.textContent = option.value;
+    select.appendChild(option);
+  }
+}
+
+function setTimePickerValue(hourSelect, minuteSelect, date) {
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  hourSelect.value = hours;
+  minuteSelect.value = minutes;
+}
+
+function buildDateTime(date, hour, minute) {
+  return `${date}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00`;
 }
 
 function isValidDateTime(value) {
@@ -918,25 +977,208 @@ function reminderLabel(minutes) {
   return `${minutes} mins before`;
 }
 
-async function requestNotificationPermission() {
-  if (!('Notification' in window) || Notification.permission !== 'default') {
+function formatDisplayDateTime(date) {
+  return date.toLocaleString([], {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+}
+
+function getNotificationPromptKey() {
+  return `${STORAGE_KEY}:${currentUser?.uid || 'guest'}:notification-prompt-seen`;
+}
+
+function getNotificationWarningKey() {
+  return `${STORAGE_KEY}:${currentUser?.uid || 'guest'}:notification-warning-dismissed`;
+}
+
+function hasReminderEnabledEntries() {
+  return state.entries.some((entry) => normalizeReminder(entry.reminderMinutes) > 0);
+}
+
+function hasReminderEnabledState(entry) {
+  return normalizeReminder(entry.reminderMinutes) > 0;
+}
+
+function hasPermissionPromptBeenSeen() {
+  return localStorage.getItem(getNotificationPromptKey()) === 'true';
+}
+
+function markPermissionPromptSeen() {
+  localStorage.setItem(getNotificationPromptKey(), 'true');
+}
+
+function hasWarningBeenDismissed() {
+  return localStorage.getItem(getNotificationWarningKey()) === 'true';
+}
+
+function markWarningBeenDismissed() {
+  localStorage.setItem(getNotificationWarningKey(), 'true');
+}
+
+function clearWarningDismissed() {
+  localStorage.removeItem(getNotificationWarningKey());
+}
+
+function dismissNotificationBanner() {
+  if (!notificationBanner) {
+    return;
+  }
+
+  notificationBanner.hidden = true;
+  notificationBanner.classList.add('hidden');
+  notificationBanner.classList.remove('warning');
+  notificationBannerTitle.textContent = 'Enable notifications for alarms';
+  notificationBannerText.textContent = 'Notifications help reminders reach you even when the app is not open.';
+  notificationBannerPrimary.textContent = 'Enable notifications';
+  notificationBannerPrimary.hidden = false;
+  notificationBannerSecondary.textContent = 'Not now';
+  notificationBannerSecondary.hidden = false;
+  pendingNotificationPromptEntry = null;
+}
+
+function showNotificationPrompt(message) {
+  if (!notificationBanner) {
+    return;
+  }
+
+  notificationBanner.hidden = false;
+  notificationBanner.classList.remove('hidden', 'warning');
+  notificationBannerTitle.textContent = 'Enable notifications for alarms';
+  notificationBannerText.textContent = message;
+  notificationBannerPrimary.textContent = 'Enable notifications';
+  notificationBannerPrimary.hidden = false;
+  notificationBannerSecondary.textContent = 'Not now';
+  notificationBannerSecondary.hidden = false;
+}
+
+function showNotificationWarning(message) {
+  if (!notificationBanner) {
+    return;
+  }
+
+  notificationBanner.hidden = false;
+  notificationBanner.classList.remove('hidden');
+  notificationBanner.classList.add('warning');
+  notificationBannerTitle.textContent = 'Notifications are off';
+  notificationBannerText.textContent = message;
+  notificationBannerPrimary.textContent = 'Got it';
+  notificationBannerPrimary.hidden = false;
+  notificationBannerSecondary.hidden = true;
+}
+
+function updateNotificationBanner() {
+  if (!notificationBanner || !currentUser) {
+    return;
+  }
+
+  if (!hasReminderEnabledEntries()) {
+    dismissNotificationBanner();
+    return;
+  }
+
+  if (!('Notification' in window)) {
+    if (!hasWarningBeenDismissed()) {
+      showNotificationWarning('This browser does not support notifications, so alarms may only play sound while ON TRACK is open.');
+    } else {
+      dismissNotificationBanner();
+    }
+    return;
+  }
+
+  if (Notification.permission === 'denied') {
+    if (!hasWarningBeenDismissed()) {
+      showNotificationWarning('Notifications are blocked in this browser. Your alarm is still saved, but sound may only play while the app is open and notifications will not appear.');
+    } else {
+      dismissNotificationBanner();
+    }
+    return;
+  }
+
+  const promptEntry = pendingNotificationPromptEntry || state.entries.find(hasReminderEnabledState) || null;
+  if (Notification.permission === 'default' && !hasPermissionPromptBeenSeen() && promptEntry) {
+    pendingNotificationPromptEntry = promptEntry;
+    showNotificationPrompt(
+      `Notifications help this alarm reach you even when ON TRACK is closed. ${promptEntry.title} is saved and ready to go.`
+    );
+    return;
+  }
+
+  dismissNotificationBanner();
+}
+
+function maybeOfferNotificationPermission(entry) {
+  if (!entry || !currentUser || !hasReminderEnabledState(entry)) {
+    return;
+  }
+
+  if (!('Notification' in window)) {
+    if (!hasWarningBeenDismissed()) {
+      showNotificationWarning('This browser does not support notifications, so alarms may only play sound while ON TRACK is open.');
+    }
+    return;
+  }
+
+  if (Notification.permission === 'denied') {
+    if (!hasWarningBeenDismissed()) {
+      showNotificationWarning('Notifications are blocked in this browser. Your alarm is still saved, but sound may only play while the app is open and notifications will not appear.');
+    }
+    return;
+  }
+
+  if (Notification.permission === 'default' && !hasPermissionPromptBeenSeen()) {
+    pendingNotificationPromptEntry = entry;
+    markPermissionPromptSeen();
+    showNotificationPrompt(
+      `Notifications help this alarm reach you even when ON TRACK is closed. ${entry.title} is saved and ready to go.`
+    );
+  }
+}
+
+async function handleNotificationBannerPrimaryClick() {
+  if (notificationBanner?.classList.contains('warning')) {
+    markWarningBeenDismissed();
+    dismissNotificationBanner();
+    return;
+  }
+
+  if (!('Notification' in window)) {
     return;
   }
 
   try {
-    await Notification.requestPermission();
+    const permission = await Notification.requestPermission();
+    if (permission === 'granted') {
+      clearWarningDismissed();
+      dismissNotificationBanner();
+      syncStatus.textContent = 'Notifications enabled for alarms.';
+      syncReminders();
+      return;
+    }
+
+    if (permission === 'denied') {
+      showNotificationWarning('Notifications are blocked in this browser. Your alarm is still saved, but sound may only play while the app is open and notifications will not appear.');
+      syncStatus.textContent = 'Notifications were denied. Alarms still sound while the app is open.';
+      return;
+    }
+
+    dismissNotificationBanner();
   } catch {
-    // Ignore permission errors from restricted environments.
+    dismissNotificationBanner();
   }
+}
+
+function handleNotificationBannerSecondaryClick() {
+  markPermissionPromptSeen();
+  dismissNotificationBanner();
 }
 
 function syncReminders() {
   reminderTimers.forEach((timerId) => clearTimeout(timerId));
   reminderTimers.clear();
-
-  if (!('Notification' in window) || Notification.permission !== 'granted') {
-    return;
-  }
 
   state.entries.forEach((entry) => {
     const start = parseLocalDateTime(entry.dateTime).getTime();
@@ -948,16 +1190,76 @@ function syncReminders() {
     }
 
     const timerId = window.setTimeout(() => {
-      const service = findServiceById(entry.serviceId);
-      const target = entry.notify === 'both' ? 'Owner + Partner' : entry.notify;
-      new Notification('ON TRACK reminder', {
-        body: `${entry.title} (${service?.name || 'General'}) for ${target}`
-      });
+      void triggerReminderAlert(entry);
       reminderTimers.delete(entry.id);
     }, delay);
 
     reminderTimers.set(entry.id, timerId);
   });
+}
+
+async function triggerReminderAlert(entry) {
+  const service = findServiceById(entry.serviceId);
+  const start = parseLocalDateTime(entry.dateTime);
+  const reminderMinutes = normalizeReminder(entry.reminderMinutes);
+  const reminderTime = new Date(start.getTime() - reminderMinutes * 60 * 1000);
+
+  await playAlarmSound();
+
+  if ('Notification' in window && Notification.permission === 'granted') {
+    new Notification('ON TRACK alarm', {
+      body: `${entry.title} (${service?.name || 'General'}) • Alarm: ${formatDisplayDateTime(reminderTime)} • Event: ${formatDisplayDateTime(start)}`,
+      icon: 'icon-192.png',
+      badge: 'icon-192.png',
+      tag: `alarm-${entry.id}`,
+      renotify: true
+    });
+  }
+
+  if (navigator.vibrate) {
+    navigator.vibrate([200, 100, 200]);
+  }
+}
+
+async function primeAlarmAudio() {
+  if (alarmAudioPrimed) {
+    return;
+  }
+
+  try {
+    if (!alarmSound) {
+      alarmSound = new Audio(ALARM_SOUND_URL);
+      alarmSound.preload = 'auto';
+      alarmSound.volume = 1;
+    }
+    const playPromise = alarmSound.play();
+    if (playPromise) {
+      await playPromise;
+    }
+    alarmSound.pause();
+    alarmSound.currentTime = 0;
+    alarmAudioPrimed = true;
+  } catch {
+    // Some browsers still block sound until the user has interacted enough.
+  }
+}
+
+async function playAlarmSound() {
+  try {
+    await primeAlarmAudio();
+    if (!alarmSound) {
+      alarmSound = new Audio(ALARM_SOUND_URL);
+      alarmSound.preload = 'auto';
+      alarmSound.volume = 1;
+    }
+    alarmSound.currentTime = 0;
+    const playPromise = alarmSound.play();
+    if (playPromise) {
+      await playPromise;
+    }
+  } catch {
+    // The notification still fires even if audio playback is blocked.
+  }
 }
 
 function getContrastColor(hexColor) {

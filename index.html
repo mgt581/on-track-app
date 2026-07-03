@@ -32,6 +32,19 @@
       Loading your planner…
     </section>
 
+    <section id="notification-banner" class="card notification-banner hidden" hidden>
+      <div class="notification-copy">
+        <h2 id="notification-banner-title">Enable notifications for alarms</h2>
+        <p id="notification-banner-text">
+          Notifications help reminders reach you even when the app is not open.
+        </p>
+      </div>
+      <div class="notification-actions">
+        <button type="button" id="notification-banner-primary">Enable notifications</button>
+        <button type="button" class="btn-secondary" id="notification-banner-secondary">Not now</button>
+      </div>
+    </section>
+
     <main id="app-shell" hidden>
       <section class="card calendar-card">
         <div class="calendar-header">
@@ -94,7 +107,11 @@
           </label>
           <label>
             Time
-            <input id="entry-time" type="time" required />
+            <div class="time-picker" aria-label="Booking time">
+              <select id="entry-hour" aria-label="Hour" required></select>
+              <span class="time-picker-separator" aria-hidden="true">:</span>
+              <select id="entry-minute" aria-label="Minute" required></select>
+            </div>
           </label>
           <label>
             Duration (mins)
@@ -156,7 +173,11 @@
           </label>
           <label>
             Time
-            <input id="modal-entry-time" type="time" required />
+            <div class="time-picker" aria-label="Booking time">
+              <select id="modal-entry-hour" aria-label="Hour" required></select>
+              <span class="time-picker-separator" aria-hidden="true">:</span>
+              <select id="modal-entry-minute" aria-label="Minute" required></select>
+            </div>
           </label>
           <label>
             Duration (mins)
