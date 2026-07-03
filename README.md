@@ -24,4 +24,5 @@ A clean, easy-to-read calendar-style planner focused on simple shared scheduling
 4. Serve the repository directory over HTTP (for example: `python3 -m http.server 8000`).
 5. Open `http://localhost:8000/signin.html` in a browser.
 
-Each signed-in user gets their own saved planner data. To keep data private per account, configure Firestore security rules so users can only read and write their own `users/{uid}` documents.
+Each signed-in user gets their own saved planner data in `users/{uid}/planner/main`. To keep data private per account, configure Firestore security rules so users can only read and write their own planner document.
+LocalStorage is kept only as an offline backup for the signed-in user if Firestore is temporarily unavailable.

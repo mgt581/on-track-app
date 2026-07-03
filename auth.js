@@ -35,6 +35,7 @@ const isFirebaseConfigured = true;
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const plannerDocRef = (userId) => doc(db, 'users', userId, 'planner', 'main');
 
 export { auth, db, firebaseSetupError, isFirebaseConfigured };
 
@@ -83,7 +84,7 @@ export async function loadStateForUser(userId) {
   if (!db) {
     return null;
   }
-  const snapshot = await getDoc(doc(db, 'users', userId, 'app', 'planner'));
+  const snapshot = await getDoc(plannerDocRef(userId));
   if (!snapshot.exists()) {
     return null;
   }
@@ -95,7 +96,7 @@ export function subscribeToUserState(userId, callback, onError) {
     return () => {};
   }
   return onSnapshot(
-    doc(db, 'users', userId, 'app', 'planner'),
+    plannerDocRef(userId),
     (snapshot) => callback(snapshot.exists() ? snapshot.data()?.state ?? null : null),
     onError
   );
@@ -105,7 +106,7 @@ export async function saveStateForUser(userId, state) {
   if (!db) {
     return;
   }
-  await setDoc(doc(db, 'users', userId, 'app', 'planner'), {
+  await setDoc(plannerDocRef(userId), {
     state,
     updatedAt: serverTimestamp()
   });
