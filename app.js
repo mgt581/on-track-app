@@ -32,6 +32,7 @@ let activeEntryId = null;
 let focusedCalendarDate = formatDateInput(new Date());
 let reminderTimers = new Map();
 let alarmSound = null;
+let alarmAudioPrimed = false;
 let remoteUnsubscribe = () => {};
 let pendingNotificationPromptEntry = null;
 
@@ -111,6 +112,7 @@ async function initialize() {
   initializeCalendar();
   registerEvents();
   initializeTimeSelectors();
+  registerAlarmAudioPriming();
   resetServiceForm();
   updateAccountSummary('Loading your planner…');
   hideMessage();
@@ -202,6 +204,16 @@ function registerEvents() {
       }
     });
   }
+}
+
+function registerAlarmAudioPriming() {
+  const prime = () => {
+    void primeAlarmAudio();
+  };
+
+  document.addEventListener('pointerdown', prime, { once: true, passive: true });
+  document.addEventListener('keydown', prime, { once: true, passive: true });
+  document.addEventListener('touchstart', prime, { once: true, passive: true });
 }
 
 function initializeCalendar() {
@@ -1192,7 +1204,7 @@ async function triggerReminderAlert(entry) {
   const reminderMinutes = normalizeReminder(entry.reminderMinutes);
   const reminderTime = new Date(start.getTime() - reminderMinutes * 60 * 1000);
 
-  playAlarmSound();
+  await playAlarmSound();
 
   if ('Notification' in window && Notification.permission === 'granted') {
     new Notification('ON TRACK alarm', {
@@ -1209,14 +1221,42 @@ async function triggerReminderAlert(entry) {
   }
 }
 
-function playAlarmSound() {
+async function primeAlarmAudio() {
+  if (alarmAudioPrimed) {
+    return;
+  }
+
   try {
     if (!alarmSound) {
       alarmSound = new Audio(ALARM_SOUND_URL);
       alarmSound.preload = 'auto';
+      alarmSound.volume = 1;
+    }
+    const playPromise = alarmSound.play();
+    if (playPromise) {
+      await playPromise;
+    }
+    alarmSound.pause();
+    alarmSound.currentTime = 0;
+    alarmAudioPrimed = true;
+  } catch {
+    // Some browsers still block sound until the user has interacted enough.
+  }
+}
+
+async function playAlarmSound() {
+  try {
+    await primeAlarmAudio();
+    if (!alarmSound) {
+      alarmSound = new Audio(ALARM_SOUND_URL);
+      alarmSound.preload = 'auto';
+      alarmSound.volume = 1;
     }
     alarmSound.currentTime = 0;
-    void alarmSound.play().catch(() => {});
+    const playPromise = alarmSound.play();
+    if (playPromise) {
+      await playPromise;
+    }
   } catch {
     // The notification still fires even if audio playback is blocked.
   }
