@@ -1,11 +1,11 @@
 import {
   firebaseSetupError, 
   isFirebaseConfigured,
-  loadStateForUser,
+  loadPlannerForUser,
   observeAuthState,
-  saveStateForUser,
+  saveStateForCalendar,
   signOutUser,
-  subscribeToUserState,
+  subscribeToPlannerState,
   waitForInitialAuthState
 } from './auth.js';
 import { createReminderEngine, scheduleNativeReminder } from './reminder-engine.js';
@@ -38,6 +38,10 @@ let focusedCalendarDate = formatDateInput(new Date());
 let remoteUnsubscribe = () => {};
 let pendingNotificationPromptEntry = null;
 let mobileWeekMode = WEEK_MODE_COMPACT;
+let syncedState = null;
+let saveQueue = Promise.resolve();
+let pendingSaveCount = 0;
+let activeCalendar = null;
 
 const appShell = document.getElementById('app-shell');
 const appMessage = document.getElementById('app-message');
@@ -49,6 +53,9 @@ const notificationBannerSecondary = document.getElementById('notification-banner
 const accountEmail = document.getElementById('account-email');
 const syncStatus = document.getElementById('sync-status');
 const signOutBtn = document.getElementById('sign-out-btn');
+const sharingText = document.getElementById('sharing-text');
+const copyInviteBtn = document.getElementById('copy-invite-btn');
+const sharingResult = document.getElementById('sharing-result');
 
 const serviceForm = document.getElementById('service-form');
 const serviceName = document.getElementById('service-name');
@@ -124,6 +131,7 @@ async function initialize() {
   initializeCalendar();
   registerEvents();
   registerWeekModeEvents();
+  registerSharingEvents();
   initializeTimeSelectors();
   registerAlarmAudioPriming();
   resetServiceForm();
@@ -156,6 +164,57 @@ function registerWeekModeEvents() {
       setMobileWeekMode(button.dataset.weekMode);
     });
   });
+}
+
+function registerSharingEvents() {
+  copyInviteBtn.addEventListener('click', handleCopyInvite);
+}
+
+function getInviteFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const calendarId = params.get('share');
+  const inviteCode = params.get('code');
+  return calendarId && inviteCode ? { calendarId, inviteCode } : null;
+}
+
+function getInviteUrl() {
+  if (!activeCalendar?.calendarId || !activeCalendar?.inviteCode) {
+    return '';
+  }
+
+  const inviteUrl = new URL('signin.html', window.location.href);
+  inviteUrl.searchParams.set('share', activeCalendar.calendarId);
+  inviteUrl.searchParams.set('code', activeCalendar.inviteCode);
+  return inviteUrl.toString();
+}
+
+function renderSharingState() {
+  if (!sharingText || !copyInviteBtn) {
+    return;
+  }
+
+  const memberCount = activeCalendar?.memberCount || 1;
+  if (memberCount > 1) {
+    sharingText.textContent = `Your partner is connected. Both accounts can add and edit bookings.`;
+  } else {
+    sharingText.textContent = 'Invite your partner so you can both use separate logins and see the same calendar.';
+  }
+
+  copyInviteBtn.disabled = !getInviteUrl();
+}
+
+async function handleCopyInvite() {
+  const inviteUrl = getInviteUrl();
+  if (!inviteUrl) {
+    return;
+  }
+
+  try {
+    await navigator.clipboard.writeText(inviteUrl);
+    sharingResult.textContent = 'Invite link copied. Send it to your partner.';
+  } catch {
+    sharingResult.textContent = `Copy this invite link and send it to your partner: ${inviteUrl}`;
+  }
 }
 
 function registerEvents() {
@@ -295,35 +354,35 @@ async function loadInitialState() {
   render();
 
   try {
-    const remoteState = await loadStateForUser(currentUser.uid);
+    activeCalendar = await loadPlannerForUser(
+      currentUser.uid,
+      currentUser.email || '',
+      state,
+      getInviteFromUrl()
+    );
+    state = hydrateState(activeCalendar.state || state);
+    persistCachedState();
 
-    if (remoteState) {
-      state = hydrateState(remoteState);
-      persistCachedState();
-    } else if (cachedState) {
-      await saveStateForUser(currentUser.uid, state);
-      persistCachedState();
-    } else {
-      state = createDefaultState();
-      persistCachedState();
-      await saveStateForUser(currentUser.uid, state);
-    }
+    syncedState = cloneState(state);
 
     syncStatus.textContent = 'Planner synced to your account.';
   } catch {
+    syncedState = cloneState(state);
     persistCachedState();
     syncStatus.textContent = 'Cloud sync is temporarily unavailable. Using the local backup for now.';
   }
 
-  remoteUnsubscribe = subscribeToUserState(
-    currentUser.uid,
+  remoteUnsubscribe = subscribeToPlannerState(
+    activeCalendar?.calendarId,
     (remoteValue) => {
       if (!remoteValue) {
         return;
       }
 
       const nextState = hydrateState(remoteValue);
-      if (JSON.stringify(nextState) === JSON.stringify(state)) {
+      syncedState = cloneState(nextState);
+
+      if (pendingSaveCount > 0 || JSON.stringify(nextState) === JSON.stringify(state)) {
         return;
       }
 
@@ -338,6 +397,7 @@ async function loadInitialState() {
   );
 
   updateNotificationBanner();
+  renderSharingState();
   render();
 }
 
@@ -353,6 +413,10 @@ function getStorageKey() {
 
 function createDefaultState() {
   return hydrateState({ services: defaultServices.map((service) => ({ ...service })), entries: [] });
+}
+
+function cloneState(value) {
+  return JSON.parse(JSON.stringify(value));
 }
 
 function loadCachedState() {
@@ -382,14 +446,38 @@ function persistAndRender() {
     channel.postMessage({ type: 'sync', uid: currentUser?.uid });
   }
   syncStatus.textContent = 'Saving changes…';
-  void saveStateForUser(currentUser.uid, state)
-    .then(() => {
+  render();
+
+  const localSnapshot = cloneState(state);
+  const baseSnapshot = syncedState ? cloneState(syncedState) : null;
+  pendingSaveCount += 1;
+
+  saveQueue = saveQueue
+    .then(async () => {
+      if (!activeCalendar?.calendarId) {
+        throw new Error('Shared calendar is not ready.');
+      }
+
+      const mergedState = hydrateState(
+        await saveStateForCalendar(activeCalendar.calendarId, localSnapshot, baseSnapshot)
+      );
+      syncedState = cloneState(mergedState);
+
+      // Do not replace a newer local edit that happened while this write was
+      // in flight. The next queued write will merge it with this result.
+      if (JSON.stringify(state) === JSON.stringify(localSnapshot)) {
+        state = mergedState;
+        persistCachedState();
+        render();
+      }
       syncStatus.textContent = 'Planner synced to your account.';
     })
     .catch(() => {
       syncStatus.textContent = 'Changes saved locally. Cloud sync will retry automatically.';
+    })
+    .finally(() => {
+      pendingSaveCount = Math.max(0, pendingSaveCount - 1);
     });
-  render();
 }
 
 function showMessage(message, isError = false) {
