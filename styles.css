@@ -94,6 +94,58 @@ main {
   gap: 1rem;
 }
 
+.billing-card {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.billing-header,
+.billing-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.billing-header h2 {
+  margin-bottom: 0.15rem;
+}
+
+.billing-copy,
+.billing-status-text {
+  margin: 0;
+  color: var(--muted);
+}
+
+.billing-status-text {
+  text-align: right;
+  font-weight: 700;
+}
+
+.pricing-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 0.65rem;
+}
+
+.pricing-option {
+  display: grid;
+  gap: 0.25rem;
+  text-align: left;
+  background: #f3f4f6;
+  color: var(--dark);
+  border: 1px solid var(--line);
+}
+
+.pricing-option span {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.pricing-contact {
+  text-decoration: none;
+}
+
 .sharing-copy {
   margin: 0;
   color: var(--muted);
@@ -756,6 +808,16 @@ button:focus-visible {
 
 /* ─── Mobile breakpoint ─────────────────────────────────────── */
 @media (max-width: 640px) {
+  .billing-header,
+  .billing-footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .billing-status-text {
+    text-align: left;
+  }
+
   .sharing-card {
     align-items: stretch;
     flex-direction: column;

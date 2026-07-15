@@ -1,0 +1,13 @@
+{
+  "name": "on-track-billing-functions",
+  "private": true,
+  "engines": {
+    "node": "20"
+  },
+  "main": "index.js",
+  "dependencies": {
+    "firebase-admin": "^13.0.2",
+    "firebase-functions": "^6.1.1",
+    "stripe": "^17.5.0"
+  }
+}

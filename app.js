@@ -2,12 +2,14 @@ import {
   firebaseSetupError, 
   isFirebaseConfigured,
   loadPlannerForUser,
+  OWNER_EMAILS,
   observeAuthState,
   saveStateForCalendar,
   signOutUser,
   subscribeToPlannerState,
   waitForInitialAuthState
 } from './auth.js';
+import { getBillingStatus, openBillingPortal, startBillingCheckout } from './billing.js';
 import { createReminderEngine, scheduleNativeReminder } from './reminder-engine.js';
 
 const STORAGE_KEY = 'on-track-calendar-v1';
@@ -42,6 +44,13 @@ let syncedState = null;
 let saveQueue = Promise.resolve();
 let pendingSaveCount = 0;
 let activeCalendar = null;
+let billingState = {
+  status: 'free',
+  planKey: 'free',
+  planLabel: 'Free',
+  maxMembers: 1,
+  ownerMode: false
+};
 
 const appShell = document.getElementById('app-shell');
 const appMessage = document.getElementById('app-message');
@@ -56,6 +65,10 @@ const signOutBtn = document.getElementById('sign-out-btn');
 const sharingText = document.getElementById('sharing-text');
 const copyInviteBtn = document.getElementById('copy-invite-btn');
 const sharingResult = document.getElementById('sharing-result');
+const billingStatusText = document.getElementById('billing-status-text');
+const billingResult = document.getElementById('billing-result');
+const billingPortalBtn = document.getElementById('billing-portal-btn');
+const planButtons = document.querySelectorAll('[data-plan]');
 
 const serviceForm = document.getElementById('service-form');
 const serviceName = document.getElementById('service-name');
@@ -179,6 +192,10 @@ function registerWeekModeEvents() {
 
 function registerSharingEvents() {
   copyInviteBtn.addEventListener('click', handleCopyInvite);
+  billingPortalBtn.addEventListener('click', handleBillingPortal);
+  planButtons.forEach((button) => {
+    button.addEventListener('click', () => handlePlanSelection(button.dataset.plan));
+  });
 }
 
 function getInviteFromUrl() {
@@ -206,12 +223,14 @@ function renderSharingState() {
 
   const memberCount = activeCalendar?.memberCount || 1;
   if (memberCount > 1) {
-    sharingText.textContent = `Your partner is connected. Both accounts can add and edit bookings.`;
+    sharingText.textContent = `${memberCount} account${memberCount === 1 ? '' : 's'} linked. Everyone can add and edit bookings.`;
   } else {
-    sharingText.textContent = 'Invite your partner so you can both use separate logins and see the same calendar.';
+    sharingText.textContent = 'Use Link account to connect another login to this dashboard.';
   }
 
-  copyInviteBtn.disabled = !getInviteUrl();
+  const atLimit = !billingState.ownerMode && memberCount >= billingState.maxMembers;
+  copyInviteBtn.disabled = !getInviteUrl() || atLimit;
+  copyInviteBtn.textContent = atLimit ? 'Plan limit reached' : 'Link account';
 }
 
 async function handleCopyInvite() {
@@ -226,6 +245,89 @@ async function handleCopyInvite() {
   } catch {
     sharingResult.textContent = `Copy this invite link and send it to your partner: ${inviteUrl}`;
   }
+}
+
+async function loadBillingState() {
+  const ownerMode = isOwnerModeEmail(currentUser?.email);
+  if (ownerMode) {
+    billingState = {
+      status: 'owner',
+      planKey: 'owner',
+      planLabel: 'Owner mode',
+      maxMembers: 9999,
+      ownerMode: true
+    };
+    renderBillingState();
+    return;
+  }
+
+  try {
+    const result = await getBillingStatus(currentUser);
+    billingState = result.billing || billingState;
+  } catch (error) {
+    billingState = { ...billingState, status: 'unavailable' };
+    billingResult.textContent = 'Billing is not available yet. Please try again later.';
+  }
+  renderBillingState();
+}
+
+function renderBillingState() {
+  if (!billingStatusText) {
+    return;
+  }
+
+  if (billingState.ownerMode) {
+    billingStatusText.textContent = 'Owner mode active — unlimited linked accounts and no payment restrictions.';
+    billingPortalBtn.hidden = true;
+  } else {
+    billingStatusText.textContent = `${billingState.planLabel || 'Free'} • ${billingState.maxMembers || 1} linked account${billingState.maxMembers === 1 ? '' : 's'} allowed.`;
+    billingPortalBtn.hidden = !billingState.stripeCustomerId;
+  }
+
+  planButtons.forEach((button) => {
+    button.disabled = Boolean(billingState.ownerMode);
+  });
+  renderSharingState();
+}
+
+async function handlePlanSelection(planKey) {
+  if (billingState.ownerMode) {
+    billingResult.textContent = 'Owner mode is already active for this account.';
+    return;
+  }
+
+  billingResult.textContent = 'Opening secure Stripe checkout…';
+  planButtons.forEach((button) => {
+    button.disabled = true;
+  });
+  try {
+    const result = await startBillingCheckout(currentUser, planKey);
+    if (result.url) {
+      window.location.assign(result.url);
+      return;
+    }
+    billingResult.textContent = 'Stripe checkout is not configured yet.';
+  } catch (error) {
+    billingResult.textContent = error.message;
+  } finally {
+    renderBillingState();
+  }
+}
+
+async function handleBillingPortal() {
+  billingResult.textContent = 'Opening Stripe billing portal…';
+  try {
+    const result = await openBillingPortal(currentUser);
+    if (result.url) {
+      window.location.assign(result.url);
+    }
+  } catch (error) {
+    billingResult.textContent = error.message;
+  }
+}
+
+function isOwnerModeEmail(email) {
+  return OWNER_EMAILS.includes(String(email || '').trim().toLowerCase());
 }
 
 function registerEvents() {
@@ -409,6 +511,7 @@ async function loadInitialState() {
 
   updateNotificationBanner();
   renderSharingState();
+  await loadBillingState();
   render();
 }
 
