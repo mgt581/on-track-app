@@ -1,0 +1,53 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isMember() {
+      return signedIn()
+        && request.auth.uid in resource.data.memberUids;
+    }
+
+    function isJoining() {
+      return signedIn()
+        && request.resource.data.inviteCode == resource.data.inviteCode
+        && request.auth.uid in request.resource.data.memberUids
+        && !(request.auth.uid in resource.data.memberUids)
+        && request.resource.data.memberUids.size() == resource.data.memberUids.size() + 1
+        && request.resource.data.memberEmails.size() == resource.data.memberEmails.size() + 1
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'memberUids',
+          'memberEmails'
+        ]);
+    }
+
+    match /users/{userId}/planner/main {
+      allow read, write: if signedIn() && request.auth.uid == userId;
+    }
+
+    match /sharedCalendars/{calendarId} {
+      allow create: if signedIn()
+        && request.resource.data.memberUids.size() == 1
+        && request.auth.uid in request.resource.data.memberUids
+        && request.resource.data.memberEmails.size() == 1
+        && request.resource.data.state is map;
+
+      allow read: if isMember();
+
+      allow update: if isJoining()
+        || (isMember()
+          && request.resource.data.memberUids == resource.data.memberUids
+          && request.resource.data.memberEmails == resource.data.memberEmails
+          && request.resource.data.inviteCode == resource.data.inviteCode
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'state',
+            'updatedAt'
+          ]));
+
+      allow delete: if isMember() && resource.data.memberUids.size() == 1;
+    }
+  }
+}

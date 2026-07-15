@@ -131,7 +131,7 @@
 
   <div class="auth-container">
     <h2>Sign in or create an account</h2>
-    <p>Every account keeps its own services, bookings, and notes.</p>
+    <p>Use separate logins and share one calendar with a private invite link.</p>
     <div id="auth-status" class="auth-status" aria-live="polite">
       <span id="auth-spinner" class="spinner" aria-hidden="true"></span>
       <span id="auth-status-text">Checking your session…</span>
@@ -187,11 +187,22 @@
       authError.hidden = !message;
     }
 
+    function getAppRedirectUrl() {
+      const params = new URLSearchParams(window.location.search);
+      const redirect = new URL('index.html', window.location.href);
+      redirect.searchParams.set('app', '1');
+      if (params.get('share') && params.get('code')) {
+        redirect.searchParams.set('share', params.get('share'));
+        redirect.searchParams.set('code', params.get('code'));
+      }
+      return redirect.toString();
+    }
+
     // 1. If a user is already logged in, redirect them immediately to the app page
     observeAuthState((user) => {
       if (user) {
         setAuthBusy('Redirecting you to your planner…', true);
-        window.location.href = 'index.html?app=1';
+        window.location.href = getAppRedirectUrl();
         return;
       }
 

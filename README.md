@@ -8,14 +8,14 @@ A clean, easy-to-read calendar-style planner focused on simple shared scheduling
 - Big readable text and minimal noise UI
 - Works in phone, tablet, laptop, and desktop browsers
 - Email sign-in/sign-up before using the planner
-- Each account keeps its own saved services and bookings
+- Separate Firebase accounts can join one shared calendar with a private invite link
 - Add services with custom colors (for example: teeth whitening blue, construction grey)
 - Shared month, week, and day calendar views with drag + resize booking blocks
 - Add bookings/tasks with title, notes, date, time, duration, and per-booking color
 - Set reminder timing per booking
 - Choose who gets the reminder (owner, partner, or both)
 - Edit bookings from a popup without leaving the calendar
-- Real-time sync across open app tabs/windows via browser broadcast + storage sync
+- Real-time sync across devices and open app tabs/windows via Firestore plus browser broadcast
 
 ### Run
 1. Copy `firebase-config.example.js` to `firebase-config.local.js`.
@@ -24,5 +24,7 @@ A clean, easy-to-read calendar-style planner focused on simple shared scheduling
 4. Serve the repository directory over HTTP (for example: `python3 -m http.server 8000`).
 5. Open `http://localhost:8000/signin.html` in a browser.
 
-Each signed-in user gets their own saved planner data in `users/{uid}/planner/main`. To keep data private per account, configure Firestore security rules so users can only read and write their own planner document.
+On first sign-in, ON TRACK creates a shared calendar and shows a partner invite link. Send that link to the other person. They sign in with their own Firebase Auth account, open the link, and are added to that calendar. The shared data is stored in `sharedCalendars/{calendarId}` and each account keeps its own link in `users/{uid}/planner/main`.
+
+Deploy `firestore.rules` to the same Firebase project before using separate accounts. The rules allow only calendar members to read or edit shared data; the invite code is used only for the one-time join update. Firestore writes are transactionally merged so a stale device cannot erase a booking added by the other device.
 LocalStorage is kept only as an offline backup for the signed-in user if Firestore is temporarily unavailable.
