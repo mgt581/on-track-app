@@ -12,6 +12,8 @@ A clean, easy-to-read calendar-style planner focused on simple shared scheduling
 - Add services with custom colors (for example: teeth whitening blue, construction grey)
 - Shared month, week, and day calendar views with drag + resize booking blocks
 - Add bookings/tasks with title, notes, date, time, duration, and per-booking color
+- Show only upcoming tasks in the main schedule; completed and past tasks move into month-by-month folders
+- Mark a task done from the schedule and reopen it from its archive folder if needed
 - Set reminder timing per booking
 - Choose who gets the reminder (owner, partner, or both)
 - Edit bookings from a popup without leaving the calendar

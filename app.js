@@ -77,6 +77,8 @@ const entryNotes = document.getElementById('entry-notes');
 
 const emptyState = document.getElementById('empty-state');
 const scheduleList = document.getElementById('schedule-list');
+const archiveSection = document.getElementById('archive-section');
+const archiveFolders = document.getElementById('archive-folders');
 const calendarEl = document.getElementById('calendar');
 const calendarTitle = document.getElementById('calendar-title');
 const calendarPrev = document.getElementById('calendar-prev');
@@ -109,6 +111,15 @@ const reminderEngine = createReminderEngine({
 });
 
 initialize();
+window.setInterval(refreshScheduleVisibility, 60 * 1000);
+
+function refreshScheduleVisibility() {
+  if (!currentUser || !appShell || appShell.hidden) {
+    return;
+  }
+  renderScheduleList();
+  emptyState.style.display = getUpcomingEntries().length ? 'none' : 'block';
+}
 
 async function initialize() {
   signOutBtn.addEventListener('click', handleSignOut);
@@ -582,7 +593,10 @@ async function handleEntrySubmit(event) {
     reminderMinutes: normalizeReminder(entryReminder.value),
     notify: normalizeNotify(entryNotify.value),
     color: '',
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
+    completed: false,
+    completedAt: '',
+    archived: false
   });
 
   sortEntries();
@@ -595,12 +609,40 @@ async function handleEntrySubmit(event) {
 }
 
 function handleScheduleListClick(event) {
+  const actionButton = event.target.closest('button[data-entry-action]');
+  if (actionButton) {
+    const entry = findEntryById(actionButton.dataset.entryId);
+    if (!entry) {
+      return;
+    }
+
+    if (actionButton.dataset.entryAction === 'complete') {
+      completeEntry(entry);
+    } else if (actionButton.dataset.entryAction === 'reopen') {
+      reopenEntry(entry);
+    }
+    return;
+  }
+
   const button = event.target.closest('[data-entry-id]');
   if (!button) {
     return;
   }
 
   openEntryModal(button.dataset.entryId);
+}
+
+function completeEntry(entry) {
+  entry.completed = true;
+  entry.completedAt = new Date().toISOString();
+  sortEntries();
+  persistAndRender();
+}
+
+function reopenEntry(entry) {
+  entry.completed = false;
+  entry.completedAt = '';
+  persistAndRender();
 }
 
 function handleCalendarDateClick(info) {
@@ -746,7 +788,7 @@ function render() {
   renderCalendarEvents();
   updateCalendarToolbar();
   updateNotificationBanner();
-  emptyState.style.display = state.entries.length ? 'none' : 'block';
+  emptyState.style.display = getUpcomingEntries().length ? 'none' : 'block';
   reminderEngine.syncReminders(state.entries);
 
   if (activeEntryId && !findEntryById(activeEntryId)) {
@@ -788,23 +830,108 @@ function renderServiceSelects() {
 function renderScheduleList() {
   scheduleList.innerHTML = '';
 
-  state.entries.forEach((entry) => {
-    const service = findServiceById(entry.serviceId);
-    const start = parseLocalDateTime(entry.dateTime);
-    const end = new Date(start.getTime() + normalizeDuration(entry.durationMinutes) * 60000);
-    const item = document.createElement('li');
-    item.className = 'schedule-item';
-    item.style.borderLeftColor = getEntryColor(entry, service);
-    item.innerHTML = `
+  getUpcomingEntries().forEach((entry) => {
+    scheduleList.appendChild(createScheduleItem(entry, 'complete', 'Done'));
+  });
+
+  renderArchiveFolders();
+}
+
+function createScheduleItem(entry, action, actionLabel) {
+  const service = findServiceById(entry.serviceId);
+  const start = parseLocalDateTime(entry.dateTime);
+  const end = new Date(start.getTime() + normalizeDuration(entry.durationMinutes) * 60000);
+  const item = document.createElement('li');
+  item.className = 'schedule-item';
+  item.style.borderLeftColor = getEntryColor(entry, service);
+  item.innerHTML = `
+    <div class="schedule-item-body">
       <button type="button" class="schedule-button" data-entry-id="${entry.id}">
         <strong>${escapeHtml(entry.title)}</strong>
         <div class="schedule-meta">${start.toLocaleDateString()} at ${formatDisplayTime(start)} • ${escapeHtml(service?.name || 'General')}</div>
         <div class="schedule-meta">${formatDisplayTime(start)} - ${formatDisplayTime(end)} • Reminder: ${escapeHtml(reminderLabel(entry.reminderMinutes))}</div>
         ${entry.notes ? `<div>${escapeHtml(entry.notes)}</div>` : ''}
       </button>
-    `;
-    scheduleList.appendChild(item);
+      <div class="schedule-item-actions">
+        <button type="button" class="btn-sm ${action === 'complete' ? 'btn-complete' : 'btn-secondary'}" data-entry-action="${action}" data-entry-id="${entry.id}">${actionLabel}</button>
+      </div>
+    </div>
+  `;
+  return item;
+}
+
+function renderArchiveFolders() {
+  const archivedEntries = getArchivedEntries();
+  archiveFolders.innerHTML = '';
+  archiveSection.hidden = !archivedEntries.length;
+
+  const folders = new Map();
+  archivedEntries.forEach((entry) => {
+    const key = getArchiveMonthKey(entry);
+    if (!folders.has(key)) {
+      folders.set(key, []);
+    }
+    folders.get(key).push(entry);
   });
+
+  [...folders.entries()]
+    .sort(([left], [right]) => right.localeCompare(left))
+    .forEach(([monthKey, entries], folderIndex) => {
+      const folder = document.createElement('details');
+      folder.className = 'archive-folder';
+      folder.open = folderIndex === 0;
+      const summary = document.createElement('summary');
+      summary.textContent = `${formatArchiveMonth(monthKey)} (${entries.length})`;
+      folder.appendChild(summary);
+
+      const list = document.createElement('ul');
+      list.className = 'schedule-list';
+      entries
+        .sort((left, right) => right.dateTime.localeCompare(left.dateTime))
+        .forEach((entry) => {
+          const item = createScheduleItem(entry, 'reopen', 'Reopen');
+          const status = document.createElement('div');
+          status.className = 'archive-status';
+          status.textContent = entry.completed
+            ? `Completed ${formatArchiveDate(entry.completedAt || entry.dateTime)}`
+            : 'Past task';
+          item.querySelector('.schedule-button').appendChild(status);
+          list.appendChild(item);
+        });
+      folder.appendChild(list);
+      archiveFolders.appendChild(folder);
+    });
+}
+
+function getUpcomingEntries() {
+  const now = Date.now();
+  return state.entries.filter((entry) => {
+    const start = parseLocalDateTime(entry.dateTime);
+    return !entry.completed && !entry.archived && start.getTime() >= now;
+  });
+}
+
+function getArchivedEntries() {
+  const now = Date.now();
+  return state.entries.filter((entry) => {
+    const start = parseLocalDateTime(entry.dateTime);
+    return entry.completed || entry.archived || start.getTime() < now;
+  });
+}
+
+function getArchiveMonthKey(entry) {
+  const archiveDate = parseLocalDateTime(entry.completedAt || entry.dateTime);
+  return `${archiveDate.getFullYear()}-${String(archiveDate.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function formatArchiveMonth(monthKey) {
+  const date = new Date(`${monthKey}-01T12:00:00`);
+  return date.toLocaleDateString([], { month: 'long', year: 'numeric' });
+}
+
+function formatArchiveDate(dateTime) {
+  const date = parseLocalDateTime(dateTime);
+  return date.toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 function renderCalendarEvents() {
@@ -964,7 +1091,10 @@ function normalizeEntry(entry) {
     reminderMinutes: normalizeReminder(entry.reminderMinutes),
     notify: normalizeNotify(entry.notify),
     color: entry?.color ? normalizeColor(entry.color, '') : '',
-    createdAt: typeof entry.createdAt === 'string' ? entry.createdAt : new Date().toISOString()
+    createdAt: typeof entry.createdAt === 'string' ? entry.createdAt : new Date().toISOString(),
+    completed: entry?.completed === true,
+    completedAt: typeof entry.completedAt === 'string' ? entry.completedAt : '',
+    archived: entry?.archived === true
   };
 }
 
