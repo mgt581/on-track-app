@@ -65,6 +65,8 @@ const signOutBtn = document.getElementById('sign-out-btn');
 const sharingText = document.getElementById('sharing-text');
 const copyInviteBtn = document.getElementById('copy-invite-btn');
 const sharingResult = document.getElementById('sharing-result');
+const sharingCapacity = document.getElementById('sharing-capacity');
+const sharingMembers = document.getElementById('sharing-members');
 const billingStatusText = document.getElementById('billing-status-text');
 const billingResult = document.getElementById('billing-result');
 const billingPortalBtn = document.getElementById('billing-portal-btn');
@@ -228,9 +230,43 @@ function renderSharingState() {
     sharingText.textContent = 'Use Link account to connect another login to this dashboard.';
   }
 
+  const memberLimit = billingState.ownerMode ? 'unlimited' : billingState.maxMembers || 1;
+  sharingCapacity.textContent = `${memberCount} of ${memberLimit} account${memberLimit === 1 ? '' : 's'} in this workspace.`;
+  renderSharingMembers();
+
   const atLimit = !billingState.ownerMode && memberCount >= billingState.maxMembers;
   copyInviteBtn.disabled = !getInviteUrl() || atLimit;
   copyInviteBtn.textContent = atLimit ? 'Plan limit reached' : 'Link account';
+}
+
+function renderSharingMembers() {
+  if (!sharingMembers) {
+    return;
+  }
+
+  sharingMembers.replaceChildren();
+  const memberEmails = Array.isArray(activeCalendar?.memberEmails) ? activeCalendar.memberEmails : [];
+  if (!memberEmails.length) {
+    return;
+  }
+
+  const label = document.createElement('span');
+  label.className = 'member-list-label';
+  label.textContent = 'People with access';
+  sharingMembers.appendChild(label);
+
+  const list = document.createElement('ul');
+  list.className = 'member-list-items';
+  memberEmails.forEach((email) => {
+    const item = document.createElement('li');
+    item.className = 'member-chip';
+    item.textContent = email;
+    if (String(email).toLowerCase() === String(currentUser?.email || '').toLowerCase()) {
+      item.textContent += ' (you)';
+    }
+    list.appendChild(item);
+  });
+  sharingMembers.appendChild(list);
 }
 
 async function handleCopyInvite() {
@@ -291,7 +327,7 @@ function renderBillingState() {
 }
 
 async function handlePlanSelection(planKey) {
-  const paymentLink = getStripePaymentLink(planKey);
+  const paymentLink = getStripePaymentLinkForUser(planKey);
   if (!paymentLink) {
     billingResult.textContent = 'This payment plan is not available yet.';
     return;
@@ -308,6 +344,17 @@ async function handlePlanSelection(planKey) {
   } finally {
     renderBillingState();
   }
+}
+
+function getStripePaymentLinkForUser(planKey) {
+  const paymentLink = getStripePaymentLink(planKey);
+  if (!paymentLink || !currentUser?.uid) {
+    return paymentLink;
+  }
+
+  const checkoutUrl = new URL(paymentLink);
+  checkoutUrl.searchParams.set('client_reference_id', currentUser.uid);
+  return checkoutUrl.toString();
 }
 
 async function handleBillingPortal() {

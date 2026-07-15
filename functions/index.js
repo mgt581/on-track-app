@@ -132,7 +132,7 @@ exports.stripeWebhook = onRequest({ secrets: [STRIPE_SECRET_KEY, STRIPE_WEBHOOK_
     );
 
     if (event.type === 'checkout.session.completed') {
-      await applyCheckoutSession(event.data.object);
+      await applyCheckoutSession(stripe, event.data.object);
     }
     if (event.type === 'customer.subscription.updated' || event.type === 'customer.subscription.deleted') {
       await applySubscription(event.data.object);
@@ -144,9 +144,9 @@ exports.stripeWebhook = onRequest({ secrets: [STRIPE_SECRET_KEY, STRIPE_WEBHOOK_
   }
 });
 
-async function applyCheckoutSession(session) {
+async function applyCheckoutSession(stripe, session) {
   const userId = session.metadata?.userId || session.client_reference_id;
-  const planKey = session.metadata?.planKey || 'free';
+  const planKey = session.metadata?.planKey || await planKeyForCheckoutSession(stripe, session);
   if (!userId) return;
   await db.doc(`users/${userId}/billing/main`).set({
     status: 'active',
@@ -159,9 +159,24 @@ async function applyCheckoutSession(session) {
 }
 
 async function applySubscription(subscription) {
-  const userId = subscription.metadata?.userId;
+  let userId = subscription.metadata?.userId;
+  let planKey = subscription.metadata?.planKey;
+  let existingBilling = null;
+
+  if (!userId || !planKey) {
+    const matchingBilling = await findBillingRecordByCustomer(subscription.customer);
+    if (matchingBilling) {
+      userId = userId || matchingBilling.userId;
+      existingBilling = matchingBilling.data;
+    }
+  }
+
+  if (!planKey) {
+    const priceId = subscription.items?.data?.[0]?.price?.id;
+    planKey = planKeyForPriceId(priceId) || existingBilling?.planKey || 'free';
+  }
+
   if (!userId) return;
-  const planKey = subscription.metadata?.planKey || 'free';
   const active = ['active', 'trialing', 'past_due'].includes(subscription.status);
   await db.doc(`users/${userId}/billing/main`).set({
     status: active ? subscription.status : 'inactive',
@@ -171,6 +186,43 @@ async function applySubscription(subscription) {
     stripeSubscriptionId: subscription.id,
     updatedAt: admin.firestore.FieldValue.serverTimestamp()
   }, { merge: true });
+}
+
+async function planKeyForCheckoutSession(stripe, session) {
+  const checkoutSession = session.line_items?.data?.length
+    ? session
+    : await stripe.checkout.sessions.retrieve(session.id, {
+      expand: ['line_items.data.price']
+    });
+  const priceId = checkoutSession.line_items?.data?.[0]?.price?.id;
+  return planKeyForPriceId(priceId);
+}
+
+function planKeyForPriceId(priceId) {
+  if (!priceId) {
+    return 'free';
+  }
+  return Object.entries(PLAN_PRICES).find(([, configuredPriceId]) => configuredPriceId === priceId)?.[0] || 'free';
+}
+
+async function findBillingRecordByCustomer(customerId) {
+  if (!customerId) {
+    return null;
+  }
+
+  const snapshot = await db.collectionGroup('billing')
+    .where('stripeCustomerId', '==', customerId)
+    .limit(1)
+    .get();
+  if (snapshot.empty) {
+    return null;
+  }
+
+  const billingDoc = snapshot.docs[0];
+  return {
+    userId: billingDoc.ref.parent.parent.id,
+    data: billingDoc.data()
+  };
 }
 
 async function billingStatusForUser(user) {
