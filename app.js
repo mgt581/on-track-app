@@ -9,7 +9,7 @@ import {
   subscribeToPlannerState,
   waitForInitialAuthState
 } from './auth.js';
-import { getBillingStatus, openBillingPortal, startBillingCheckout } from './billing.js';
+import { getBillingStatus, getStripePaymentLink, openBillingPortal } from './billing.js';
 import { createReminderEngine, scheduleNativeReminder } from './reminder-engine.js';
 
 const STORAGE_KEY = 'on-track-calendar-v1';
@@ -285,28 +285,24 @@ function renderBillingState() {
   }
 
   planButtons.forEach((button) => {
-    button.disabled = Boolean(billingState.ownerMode);
+    button.disabled = false;
   });
   renderSharingState();
 }
 
 async function handlePlanSelection(planKey) {
-  if (billingState.ownerMode) {
-    billingResult.textContent = 'Owner mode is already active for this account.';
+  const paymentLink = getStripePaymentLink(planKey);
+  if (!paymentLink) {
+    billingResult.textContent = 'This payment plan is not available yet.';
     return;
   }
 
-  billingResult.textContent = 'Opening secure Stripe checkout…';
+  billingResult.textContent = 'Opening Stripe checkout…';
   planButtons.forEach((button) => {
     button.disabled = true;
   });
   try {
-    const result = await startBillingCheckout(currentUser, planKey);
-    if (result.url) {
-      window.location.assign(result.url);
-      return;
-    }
-    billingResult.textContent = 'Stripe checkout is not configured yet.';
+    window.location.assign(paymentLink);
   } catch (error) {
     billingResult.textContent = error.message;
   } finally {

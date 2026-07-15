@@ -1,5 +1,15 @@
 const BILLING_FUNCTIONS_BASE_URL = 'https://us-central1-on-track-73a59.cloudfunctions.net';
 
+export const STRIPE_PAYMENT_LINKS = {
+  duo: 'https://buy.stripe.com/7sY5kCgu79Uq5CG3VAcAo02',
+  team5: 'https://buy.stripe.com/5kQ5kC5PtaYu5CG8bQcAo01',
+  team10: 'https://buy.stripe.com/4gMcN40v9feK9SW77McAo00'
+};
+
+export function getStripePaymentLink(planKey) {
+  return STRIPE_PAYMENT_LINKS[planKey] || '';
+}
+
 export async function getBillingStatus(user) {
   return requestBillingFunction('/getBillingStatus', user);
 }
