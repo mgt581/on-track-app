@@ -36,7 +36,7 @@
       <div class="notification-copy">
         <h2 id="notification-banner-title">Enable notifications for alarms</h2>
         <p id="notification-banner-text">
-          Notifications help reminders reach you even when the app is not open.
+          Enable device alerts while ON TRACK is open. Reliable alarms when the app is fully closed need push or native scheduling.
         </p>
       </div>
       <div class="notification-actions">
@@ -92,6 +92,9 @@
           <p id="sharing-text" class="sharing-copy">Preparing your shared calendar…</p>
           <p id="sharing-capacity" class="sharing-capacity"></p>
           <div id="sharing-members" class="member-list" aria-live="polite"></div>
+          <div class="sharing-actions">
+            <button type="button" id="leave-shared-calendar-btn" class="btn-secondary" hidden>Leave team</button>
+          </div>
           <p id="sharing-result" class="field-hint" aria-live="polite"></p>
         </div>
         <button type="button" id="copy-invite-btn" aria-describedby="sharing-text sharing-capacity">Link account</button>
@@ -186,6 +189,10 @@
               <option value="1440">1 day before</option>
             </select>
             <p class="field-hint reminder-hint">Alarms work while the app is open. For reliable background alerts, mobile app notifications are required.</p>
+            <span class="notification-speech-option">
+              <input type="checkbox" id="notification-speech-toggle" />
+              Read alarm details aloud
+            </span>
           </label>
           <label>
             Notify

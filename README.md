@@ -21,6 +21,9 @@ A clean, easy-to-read calendar-style planner focused on shared bookings, upcomin
 - Real-time sync across devices and open app tabs/windows via Firestore plus browser broadcast
 - Clear onboarding for couples, partners, cleaners, trades, and small teams
 - Linked-member visibility so each workspace shows who has access
+- Workspace owners can remove members; invited members can leave without buying a separate plan
+- Reminder routing respects Owner only, Partner only, or both
+- Browser sound alarms, device notifications, and optional spoken alarm details
 
 ### Run
 1. Copy `firebase-config.example.js` to `firebase-config.local.js`.
@@ -33,6 +36,8 @@ On first sign-in, ON TRACK creates a shared calendar and shows a partner invite 
 
 Deploy `firestore.rules` to the same Firebase project before using separate accounts. The rules allow only calendar members to read or edit shared data; the invite code is used only for the one-time join update. Firestore writes are transactionally merged so a stale device cannot erase a booking added by the other device.
 LocalStorage is kept only as an offline backup for the signed-in user if Firestore is temporarily unavailable.
+
+Workspace membership is controlled by the shared calendar owner. Invited users inherit the workspace's account allowance and do not need to buy a second subscription. The owner can remove a member, and non-owner members can leave. Browser alarms and speech work while the planner is open; reliable alerts while the app is fully closed require push/native scheduling and device permission.
 
 ### Linked-account plans
 

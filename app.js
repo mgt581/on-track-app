@@ -1,9 +1,11 @@
 import {
   firebaseSetupError, 
   isFirebaseConfigured,
+  leaveSharedCalendar,
   loadPlannerForUser,
   OWNER_EMAILS,
   observeAuthState,
+  removeSharedCalendarMember,
   saveStateForCalendar,
   signOutUser,
   subscribeToPlannerState,
@@ -59,6 +61,7 @@ const notificationBannerTitle = document.getElementById('notification-banner-tit
 const notificationBannerText = document.getElementById('notification-banner-text');
 const notificationBannerPrimary = document.getElementById('notification-banner-primary');
 const notificationBannerSecondary = document.getElementById('notification-banner-secondary');
+const notificationSpeechToggle = document.getElementById('notification-speech-toggle');
 const accountEmail = document.getElementById('account-email');
 const syncStatus = document.getElementById('sync-status');
 const signOutBtn = document.getElementById('sign-out-btn');
@@ -67,6 +70,7 @@ const copyInviteBtn = document.getElementById('copy-invite-btn');
 const sharingResult = document.getElementById('sharing-result');
 const sharingCapacity = document.getElementById('sharing-capacity');
 const sharingMembers = document.getElementById('sharing-members');
+const leaveSharedCalendarBtn = document.getElementById('leave-shared-calendar-btn');
 const billingStatusText = document.getElementById('billing-status-text');
 const billingResult = document.getElementById('billing-result');
 const billingPortalBtn = document.getElementById('billing-portal-btn');
@@ -122,7 +126,9 @@ const reminderEngine = createReminderEngine({
   getServiceLabel: (serviceId) => findServiceById(serviceId)?.name || 'General',
   parseLocalDateTime,
   normalizeReminder,
-  formatDisplayDateTime
+  formatDisplayDateTime,
+  shouldNotifyEntry: shouldCurrentUserReceiveReminder,
+  shouldSpeakEntry: () => isAlarmSpeechEnabled()
 });
 
 initialize();
@@ -182,6 +188,8 @@ async function initialize() {
 function registerNotificationBannerEvents() {
   notificationBannerPrimary.addEventListener('click', handleNotificationBannerPrimaryClick);
   notificationBannerSecondary.addEventListener('click', handleNotificationBannerSecondaryClick);
+  notificationSpeechToggle.addEventListener('change', handleNotificationSpeechToggle);
+  notificationSpeechToggle.checked = isAlarmSpeechEnabled();
 }
 
 function registerWeekModeEvents() {
@@ -194,6 +202,8 @@ function registerWeekModeEvents() {
 
 function registerSharingEvents() {
   copyInviteBtn.addEventListener('click', handleCopyInvite);
+  sharingMembers.addEventListener('click', handleMemberListClick);
+  leaveSharedCalendarBtn.addEventListener('click', handleLeaveSharedCalendar);
   billingPortalBtn.addEventListener('click', handleBillingPortal);
   planButtons.forEach((button) => {
     button.addEventListener('click', () => handlePlanSelection(button.dataset.plan));
@@ -230,13 +240,22 @@ function renderSharingState() {
     sharingText.textContent = 'Use Link account to connect another login to this dashboard.';
   }
 
-  const memberLimit = billingState.ownerMode ? 'unlimited' : billingState.maxMembers || 1;
+  const workspaceMaxMembers = getWorkspaceMaxMembers();
+  const memberLimit = workspaceMaxMembers >= 9999 ? 'unlimited' : workspaceMaxMembers;
   sharingCapacity.textContent = `${memberCount} of ${memberLimit} account${memberLimit === 1 ? '' : 's'} in this workspace.`;
   renderSharingMembers();
+  leaveSharedCalendarBtn.hidden = !activeCalendar?.calendarId
+    || !currentUser
+    || activeCalendar.ownerUid === currentUser.uid;
 
-  const atLimit = !billingState.ownerMode && memberCount >= billingState.maxMembers;
-  copyInviteBtn.disabled = !getInviteUrl() || atLimit;
-  copyInviteBtn.textContent = atLimit ? 'Plan limit reached' : 'Link account';
+  const atLimit = workspaceMaxMembers < 9999 && memberCount >= workspaceMaxMembers;
+  const canInvite = activeCalendar?.ownerUid === currentUser?.uid || billingState.ownerMode;
+  copyInviteBtn.disabled = !canInvite || !getInviteUrl() || atLimit;
+  copyInviteBtn.textContent = !canInvite
+    ? 'Owner manages invites'
+    : atLimit
+      ? 'Plan limit reached'
+      : 'Link account';
 }
 
 function renderSharingMembers() {
@@ -257,16 +276,86 @@ function renderSharingMembers() {
 
   const list = document.createElement('ul');
   list.className = 'member-list-items';
-  memberEmails.forEach((email) => {
+  const memberUids = Array.isArray(activeCalendar?.memberUids) ? activeCalendar.memberUids : [];
+  memberEmails.forEach((email, index) => {
+    const memberUid = memberUids[index] || '';
     const item = document.createElement('li');
-    item.className = 'member-chip';
-    item.textContent = email;
+    item.className = 'member-row';
+
+    const label = document.createElement('span');
+    label.className = 'member-chip';
+    label.textContent = email;
     if (String(email).toLowerCase() === String(currentUser?.email || '').toLowerCase()) {
-      item.textContent += ' (you)';
+      label.textContent += ' (you)';
+    }
+    if (memberUid && memberUid === activeCalendar?.ownerUid) {
+      label.textContent += ' · owner';
+    }
+    item.appendChild(label);
+
+    if (activeCalendar?.ownerUid === currentUser?.uid && memberUid && memberUid !== currentUser.uid) {
+      const removeButton = document.createElement('button');
+      removeButton.type = 'button';
+      removeButton.className = 'btn-sm btn-danger member-remove';
+      removeButton.dataset.memberUid = memberUid;
+      removeButton.dataset.memberEmail = email;
+      removeButton.textContent = 'Remove';
+      removeButton.setAttribute('aria-label', `Remove ${email} from this team`);
+      item.appendChild(removeButton);
     }
     list.appendChild(item);
   });
   sharingMembers.appendChild(list);
+}
+
+async function handleMemberListClick(event) {
+  const removeButton = event.target.closest('[data-member-uid]');
+  if (!removeButton || !activeCalendar?.calendarId) {
+    return;
+  }
+
+  const memberEmail = removeButton.dataset.memberEmail || 'this member';
+  if (!window.confirm(`Remove ${memberEmail} from this shared workspace?`)) {
+    return;
+  }
+
+  removeButton.disabled = true;
+  sharingResult.textContent = `Removing ${memberEmail}…`;
+  try {
+    await removeSharedCalendarMember(
+      activeCalendar.calendarId,
+      removeButton.dataset.memberUid,
+      memberEmail
+    );
+    activeCalendar.memberUids = activeCalendar.memberUids.filter((uid) => uid !== removeButton.dataset.memberUid);
+    activeCalendar.memberEmails = activeCalendar.memberEmails.filter((email) => email !== memberEmail);
+    activeCalendar.memberCount = activeCalendar.memberUids.length;
+    sharingResult.textContent = `${memberEmail} no longer has access to this workspace.`;
+    renderSharingState();
+  } catch (error) {
+    removeButton.disabled = false;
+    sharingResult.textContent = error.message;
+  }
+}
+
+async function handleLeaveSharedCalendar() {
+  if (!activeCalendar?.calendarId || !currentUser || activeCalendar.ownerUid === currentUser.uid) {
+    return;
+  }
+
+  if (!window.confirm('Leave this shared workspace? You will keep your own login but will no longer see this team calendar.')) {
+    return;
+  }
+
+  leaveSharedCalendarBtn.disabled = true;
+  sharingResult.textContent = 'Leaving the shared workspace…';
+  try {
+    await leaveSharedCalendar(activeCalendar.calendarId, currentUser.uid, currentUser.email || '');
+    await signOutUser();
+  } catch (error) {
+    leaveSharedCalendarBtn.disabled = false;
+    sharingResult.textContent = error.message;
+  }
 }
 
 async function handleCopyInvite() {
@@ -312,8 +401,16 @@ function renderBillingState() {
     return;
   }
 
+  const isWorkspaceOwner = activeCalendar?.ownerUid === currentUser?.uid;
+  const isCoveredInvitee = Boolean(activeCalendar?.ownerUid && !isWorkspaceOwner && !billingState.ownerMode);
+  const workspaceMaxMembers = getWorkspaceMaxMembers();
+  const workspaceLimit = workspaceMaxMembers >= 9999 ? 'unlimited' : workspaceMaxMembers;
+
   if (billingState.ownerMode) {
     billingStatusText.textContent = 'Owner mode active — unlimited linked accounts and no payment restrictions.';
+    billingPortalBtn.hidden = true;
+  } else if (isCoveredInvitee) {
+    billingStatusText.textContent = `Invited member — covered by the workspace plan (${workspaceLimit} accounts).`;
     billingPortalBtn.hidden = true;
   } else {
     billingStatusText.textContent = `${billingState.planLabel || 'Free'} • ${billingState.maxMembers || 1} linked account${billingState.maxMembers === 1 ? '' : 's'} allowed.`;
@@ -321,9 +418,16 @@ function renderBillingState() {
   }
 
   planButtons.forEach((button) => {
-    button.disabled = false;
+    button.disabled = isCoveredInvitee;
   });
   renderSharingState();
+}
+
+function getWorkspaceMaxMembers() {
+  if (billingState.ownerMode) {
+    return 9999;
+  }
+  return activeCalendar?.maxMembers || billingState.maxMembers || 1;
 }
 
 async function handlePlanSelection(planKey) {
@@ -549,6 +653,20 @@ async function loadInitialState() {
     },
     () => {
       syncStatus.textContent = 'Cloud sync is temporarily unavailable. Changes are still saved locally.';
+    },
+    (calendarUpdate) => {
+      if (!calendarUpdate || !activeCalendar) {
+        return;
+      }
+
+      if (!calendarUpdate.memberUids.includes(currentUser.uid)) {
+        syncStatus.textContent = 'Your access to this shared workspace has been removed.';
+        void signOutUser();
+        return;
+      }
+
+      activeCalendar = { ...activeCalendar, ...calendarUpdate };
+      renderBillingState();
     }
   );
 
@@ -1446,6 +1564,31 @@ function getNotificationPromptKey() {
   return `${STORAGE_KEY}:${currentUser?.uid || 'guest'}:notification-prompt-seen`;
 }
 
+function getNotificationSpeechKey() {
+  return `${STORAGE_KEY}:${currentUser?.uid || 'guest'}:notification-speech`;
+}
+
+function isAlarmSpeechEnabled() {
+  return localStorage.getItem(getNotificationSpeechKey()) === 'true';
+}
+
+function handleNotificationSpeechToggle() {
+  localStorage.setItem(getNotificationSpeechKey(), String(notificationSpeechToggle.checked));
+  syncStatus.textContent = notificationSpeechToggle.checked
+    ? 'Alarm details will be read aloud when reminders trigger.'
+    : 'Spoken alarm details are off.';
+}
+
+function shouldCurrentUserReceiveReminder(entry) {
+  const notify = normalizeNotify(entry?.notify);
+  if (notify === 'both') {
+    return true;
+  }
+
+  const isWorkspaceOwner = activeCalendar?.ownerUid === currentUser?.uid;
+  return notify === 'owner' ? isWorkspaceOwner : !isWorkspaceOwner;
+}
+
 function getNotificationWarningKey() {
   return `${STORAGE_KEY}:${currentUser?.uid || 'guest'}:notification-warning-dismissed`;
 }
@@ -1487,7 +1630,7 @@ function dismissNotificationBanner() {
   notificationBanner.classList.add('hidden');
   notificationBanner.classList.remove('warning');
   notificationBannerTitle.textContent = 'Enable notifications for alarms';
-  notificationBannerText.textContent = 'Notifications help reminders reach you even when the app is not open.';
+  notificationBannerText.textContent = 'Enable device alerts while ON TRACK is open. Reliable alarms when the app is fully closed need push or native scheduling.';
   notificationBannerPrimary.textContent = 'Enable notifications';
   notificationBannerPrimary.hidden = false;
   notificationBannerSecondary.textContent = 'Not now';
@@ -1537,7 +1680,7 @@ function updateNotificationBanner() {
 
   if (!('Notification' in window)) {
     if (!hasWarningBeenDismissed()) {
-      showNotificationWarning('This browser does not support notifications, so alarms may only play sound while ON TRACK is open.');
+      showNotificationWarning('This browser does not support notifications. Sound and spoken alarms can still work while ON TRACK is open.');
     } else {
       dismissNotificationBanner();
     }
@@ -1546,7 +1689,7 @@ function updateNotificationBanner() {
 
   if (Notification.permission === 'denied') {
     if (!hasWarningBeenDismissed()) {
-      showNotificationWarning('Notifications are blocked in this browser. Your alarm is still saved, but sound may only play while the app is open and notifications will not appear.');
+      showNotificationWarning('Notifications are blocked in this browser. Your alarm is still saved, but sound and spoken alerts may only work while ON TRACK is open.');
     } else {
       dismissNotificationBanner();
     }
@@ -1557,7 +1700,7 @@ function updateNotificationBanner() {
   if (Notification.permission === 'default' && !hasPermissionPromptBeenSeen() && promptEntry) {
     pendingNotificationPromptEntry = promptEntry;
     showNotificationPrompt(
-      `Notifications help this alarm reach you even when ON TRACK is closed. ${promptEntry.title} is saved and ready to go.`
+      `Allow device alerts for ${promptEntry.title}. For reliable alerts while the app is fully closed, push or native scheduling is still required.`
     );
     return;
   }
@@ -1572,14 +1715,14 @@ function maybeOfferNotificationPermission(entry) {
 
   if (!('Notification' in window)) {
     if (!hasWarningBeenDismissed()) {
-      showNotificationWarning('This browser does not support notifications, so alarms may only play sound while ON TRACK is open.');
+      showNotificationWarning('This browser does not support notifications. Sound and spoken alarms can still work while ON TRACK is open.');
     }
     return;
   }
 
   if (Notification.permission === 'denied') {
     if (!hasWarningBeenDismissed()) {
-      showNotificationWarning('Notifications are blocked in this browser. Your alarm is still saved, but sound may only play while the app is open and notifications will not appear.');
+      showNotificationWarning('Notifications are blocked in this browser. Your alarm is still saved, but sound and spoken alerts may only work while ON TRACK is open.');
     }
     return;
   }
@@ -1588,7 +1731,7 @@ function maybeOfferNotificationPermission(entry) {
     pendingNotificationPromptEntry = entry;
     markPermissionPromptSeen();
     showNotificationPrompt(
-      `Notifications help this alarm reach you even when ON TRACK is closed. ${entry.title} is saved and ready to go.`
+      `Allow device alerts for ${entry.title}. For reliable alerts while the app is fully closed, push or native scheduling is still required.`
     );
   }
 }
@@ -1615,7 +1758,7 @@ async function handleNotificationBannerPrimaryClick() {
     }
 
     if (permission === 'denied') {
-      showNotificationWarning('Notifications are blocked in this browser. Your alarm is still saved, but sound may only play while the app is open and notifications will not appear.');
+      showNotificationWarning('Notifications are blocked in this browser. Your alarm is still saved, but sound and spoken alerts may only work while ON TRACK is open.');
       syncStatus.textContent = 'Notifications were denied. Alarms still sound while the app is open.';
       return;
     }

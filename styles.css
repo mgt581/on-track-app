@@ -120,11 +120,26 @@ main {
 
 .member-list-items {
   display: flex;
+  align-items: center;
   flex-wrap: wrap;
   gap: 0.4rem;
   padding: 0;
   margin: 0;
   list-style: none;
+}
+
+.member-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  max-width: 100%;
+}
+
+.sharing-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.7rem;
 }
 
 .member-chip {
@@ -255,6 +270,19 @@ main {
   gap: 0.5rem;
   flex-wrap: wrap;
   justify-content: flex-end;
+}
+
+.notification-speech-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--muted);
+  font-size: 0.86rem;
+  white-space: nowrap;
+}
+
+.notification-speech-option input {
+  width: auto;
 }
 
 h2 {

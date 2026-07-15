@@ -130,7 +130,31 @@ export async function loadPlannerForUser(userId, userEmail, fallbackState, invit
 
   const sharedCalendar = sharedSnapshot.data();
   if (!Array.isArray(sharedCalendar.memberUids) || !sharedCalendar.memberUids.includes(userId)) {
-    throw new Error('This account is not a member of the shared calendar.');
+    // An owner may remove a member at any time. Detach the removed account
+    // from the old workspace so it can start a fresh personal workspace.
+    await setDoc(userPlannerRef, {
+      sharedCalendarId: '',
+      inviteCode: ''
+    }, { merge: true });
+    const created = await createSharedCalendar(userId, userEmail, fallbackState);
+    calendarId = created.calendarId;
+    userPlanner = { ...userPlanner, sharedCalendarId: calendarId, inviteCode: created.inviteCode };
+    userPlannerSnapshot = await getDoc(userPlannerRef);
+    const replacementSnapshot = await getDoc(sharedCalendarDocRef(calendarId));
+    if (!replacementSnapshot.exists()) {
+      throw new Error('A new personal workspace could not be created.');
+    }
+    return {
+      calendarId,
+      inviteCode: replacementSnapshot.data().inviteCode || created.inviteCode,
+      memberCount: 1,
+      memberUids: [userId],
+      memberEmails: [userEmail],
+      ownerUid: userId,
+      planKey: 'free',
+      maxMembers: 1,
+      state: replacementSnapshot.data().state ?? fallbackState
+    };
   }
 
   const ownerUid = sharedCalendar.ownerUid || sharedCalendar.memberUids[0] || userId;
@@ -214,13 +238,82 @@ async function joinSharedCalendar(userId, userEmail, calendarId, inviteCode) {
   }, { merge: true });
 }
 
-export function subscribeToPlannerState(calendarId, callback, onError) {
+export async function removeSharedCalendarMember(calendarId, memberUid, memberEmail) {
+  if (!db || !calendarId || !memberUid) {
+    throw new Error('This shared workspace is not ready.');
+  }
+
+  await runTransaction(db, async (transaction) => {
+    const calendarRef = sharedCalendarDocRef(calendarId);
+    const snapshot = await transaction.get(calendarRef);
+    if (!snapshot.exists()) {
+      throw new Error('The shared workspace could not be found.');
+    }
+
+    const sharedCalendar = snapshot.data();
+    if (sharedCalendar.ownerUid === memberUid) {
+      throw new Error('The workspace owner cannot be removed.');
+    }
+
+    const memberUids = (sharedCalendar.memberUids || []).filter((uid) => uid !== memberUid);
+    const memberEmails = (sharedCalendar.memberEmails || []).filter((email) => email !== memberEmail);
+    transaction.update(calendarRef, {
+      memberUids,
+      memberEmails,
+      updatedAt: serverTimestamp()
+    });
+  });
+}
+
+export async function leaveSharedCalendar(calendarId, userId, userEmail) {
+  if (!db || !calendarId || !userId) {
+    throw new Error('This shared workspace is not ready.');
+  }
+
+  await runTransaction(db, async (transaction) => {
+    const calendarRef = sharedCalendarDocRef(calendarId);
+    const snapshot = await transaction.get(calendarRef);
+    if (!snapshot.exists()) {
+      throw new Error('The shared workspace could not be found.');
+    }
+
+    const sharedCalendar = snapshot.data();
+    if (sharedCalendar.ownerUid === userId) {
+      throw new Error('The workspace owner cannot leave. Remove members or transfer ownership first.');
+    }
+
+    const memberUids = (sharedCalendar.memberUids || []).filter((uid) => uid !== userId);
+    const memberEmails = (sharedCalendar.memberEmails || []).filter((email) => email !== userEmail);
+    transaction.update(calendarRef, {
+      memberUids,
+      memberEmails,
+      updatedAt: serverTimestamp()
+    });
+    transaction.set(plannerDocRef(userId), {
+      sharedCalendarId: '',
+      inviteCode: ''
+    }, { merge: true });
+  });
+}
+
+export function subscribeToPlannerState(calendarId, callback, onError, onCalendarChange) {
   if (!db || !calendarId) {
     return () => {};
   }
   return onSnapshot(
     sharedCalendarDocRef(calendarId),
-    (snapshot) => callback(snapshot.exists() ? snapshot.data()?.state ?? null : null),
+    (snapshot) => {
+      const sharedCalendar = snapshot.exists() ? snapshot.data() : null;
+      onCalendarChange?.(sharedCalendar ? {
+        memberUids: sharedCalendar.memberUids || [],
+        memberEmails: sharedCalendar.memberEmails || [],
+        memberCount: Array.isArray(sharedCalendar.memberUids) ? sharedCalendar.memberUids.length : 0,
+        ownerUid: sharedCalendar.ownerUid || '',
+        planKey: sharedCalendar.planKey || 'free',
+        maxMembers: sharedCalendar.maxMembers || 1
+      } : null);
+      callback(sharedCalendar?.state ?? null);
+    },
     onError
   );
 }

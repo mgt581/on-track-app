@@ -156,6 +156,7 @@ async function applyCheckoutSession(stripe, session) {
     stripeSubscriptionId: session.subscription || null,
     updatedAt: admin.firestore.FieldValue.serverTimestamp()
   }, { merge: true });
+  await updateOwnedCalendarsPlan(userId, planKey, PLAN_LIMITS[planKey] || 1);
 }
 
 async function applySubscription(subscription) {
@@ -186,6 +187,7 @@ async function applySubscription(subscription) {
     stripeSubscriptionId: subscription.id,
     updatedAt: admin.firestore.FieldValue.serverTimestamp()
   }, { merge: true });
+  await updateOwnedCalendarsPlan(userId, active ? planKey : 'free', active ? PLAN_LIMITS[planKey] || 1 : 1);
 }
 
 async function planKeyForCheckoutSession(stripe, session) {
@@ -223,6 +225,25 @@ async function findBillingRecordByCustomer(customerId) {
     userId: billingDoc.ref.parent.parent.id,
     data: billingDoc.data()
   };
+}
+
+async function updateOwnedCalendarsPlan(ownerUid, planKey, maxMembers) {
+  const snapshot = await db.collection('sharedCalendars')
+    .where('ownerUid', '==', ownerUid)
+    .get();
+  if (snapshot.empty) {
+    return;
+  }
+
+  const batch = db.batch();
+  snapshot.docs.forEach((calendarDoc) => {
+    batch.update(calendarDoc.ref, {
+      planKey,
+      maxMembers,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+  });
+  await batch.commit();
 }
 
 async function billingStatusForUser(user) {
