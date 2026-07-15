@@ -46,13 +46,49 @@
     </section>
 
     <main id="app-shell" hidden>
+      <section class="card billing-card">
+        <div class="billing-header">
+          <div>
+            <h2>Plans for linked accounts</h2>
+            <p class="billing-copy">Keep one dashboard for couples, partners, clubs, teams, and organisations.</p>
+          </div>
+          <p id="billing-status-text" class="billing-status-text">Checking plan…</p>
+        </div>
+        <div class="pricing-grid">
+          <button type="button" class="pricing-option" data-plan="duo">
+            <strong>2 accounts</strong>
+            <span>£2.99 / month</span>
+          </button>
+          <button type="button" class="pricing-option" data-plan="team5">
+            <strong>Up to 5 accounts</strong>
+            <span>£4.99 / month</span>
+          </button>
+          <button type="button" class="pricing-option" data-plan="team10">
+            <strong>Up to 10 accounts</strong>
+            <span>£8.99 / month</span>
+          </button>
+          <a class="pricing-option pricing-contact" href="mailto:alexbryantwork3234@outlook.com?subject=ON%20TRACK%2010%2B%20accounts">
+            <strong>Agencies &amp; 10+ accounts</strong>
+            <span>Get in touch</span>
+          </a>
+        </div>
+        <div class="billing-footer">
+          <p id="billing-result" class="field-hint" aria-live="polite"></p>
+          <button type="button" id="billing-portal-btn" class="btn-secondary" hidden>Manage Stripe billing</button>
+        </div>
+        <div class="agency-contact">
+          <strong>Need a larger organisation plan?</strong>
+          <a href="mailto:alexbryantwork3234@outlook.com?subject=ON%20TRACK%20agency%20or%2010%2B%20accounts">Contact us about agency and 10+ account pricing</a>
+        </div>
+      </section>
+
       <section class="card sharing-card">
         <div>
           <h2>Shared calendar access</h2>
           <p id="sharing-text" class="sharing-copy">Preparing your shared calendar…</p>
           <p id="sharing-result" class="field-hint" aria-live="polite"></p>
         </div>
-        <button type="button" id="copy-invite-btn">Copy partner invite link</button>
+        <button type="button" id="copy-invite-btn">Link account</button>
       </section>
 
       <section class="card calendar-card">

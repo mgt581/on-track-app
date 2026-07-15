@@ -41,6 +41,11 @@ const db = getFirestore(app);
 const plannerDocRef = (userId) => doc(db, 'users', userId, 'planner', 'main');
 const sharedCalendarDocRef = (calendarId) => doc(db, 'sharedCalendars', calendarId);
 
+export const OWNER_EMAILS = [
+  'alexbryantwork3234@outlook.com',
+  'meganbullock881@yahoo.com'
+];
+
 export { auth, db, firebaseSetupError, isFirebaseConfigured };
 
 export function observeAuthState(callback) {
@@ -128,6 +133,15 @@ export async function loadPlannerForUser(userId, userEmail, fallbackState, invit
     throw new Error('This account is not a member of the shared calendar.');
   }
 
+  const ownerUid = sharedCalendar.ownerUid || sharedCalendar.memberUids[0] || userId;
+  if (!sharedCalendar.ownerUid) {
+    await updateDoc(sharedCalendarDocRef(calendarId), {
+      ownerUid,
+      planKey: sharedCalendar.planKey || 'free',
+      maxMembers: sharedCalendar.maxMembers || 1
+    });
+  }
+
   if (!userPlanner.sharedCalendarId) {
     await setDoc(userPlannerRef, {
       sharedCalendarId: calendarId,
@@ -141,6 +155,9 @@ export async function loadPlannerForUser(userId, userEmail, fallbackState, invit
     memberCount: sharedCalendar.memberUids.length,
     memberUids: sharedCalendar.memberUids,
     memberEmails: sharedCalendar.memberEmails || [],
+    ownerUid,
+    planKey: sharedCalendar.planKey || 'free',
+    maxMembers: sharedCalendar.maxMembers || 1,
     state: sharedCalendar.state ?? fallbackState
   };
 }
@@ -159,6 +176,9 @@ async function createSharedCalendar(userId, userEmail, initialState) {
 
     transaction.set(sharedCalendarDocRef(calendarId), {
       inviteCode,
+      ownerUid: userId,
+      planKey: 'free',
+      maxMembers: 1,
       memberUids: [userId],
       memberEmails: [userEmail],
       state: existingData.state || initialState,
