@@ -1051,3 +1051,160 @@ button:focus-visible {
     font-size: 16px; /* prevent iOS auto-zoom on focus */
   }
 }
+
+/* ─── Shared ON TRACK dark theme ──────────────────────────────
+   Keep the signed-in experience visually consistent with the
+   blue/black sign-in page while retaining comfortable grey surfaces
+   for forms, cards and calendar content. */
+:root {
+  --bg: radial-gradient(circle at top left, #1d4ed8 0, #0b1221 46%, #070b14 100%);
+  --text: #f9fafb;
+  --card: #161e2e;
+  --muted: #9ca3af;
+  --line: #374151;
+  --dark: #1f2937;
+}
+
+body {
+  background: var(--bg);
+  background-attachment: fixed;
+  color: var(--text);
+  min-height: 100vh;
+}
+
+a {
+  color: #93c5fd;
+}
+
+.card,
+.notification-banner {
+  background: var(--card);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.22);
+}
+
+.status-text.error {
+  color: #fca5a5;
+}
+
+.member-chip,
+.pricing-option,
+.archive-folder,
+.schedule-item {
+  background: #1f2937;
+  color: #f9fafb;
+  border-color: #4b5563;
+}
+
+.member-chip {
+  color: #f9fafb;
+}
+
+.pricing-free {
+  background: rgba(37, 99, 235, 0.18);
+  border-color: rgba(147, 197, 253, 0.55);
+}
+
+.notification-banner.warning {
+  background: #2b2415;
+}
+
+input,
+select,
+textarea {
+  background: #1f2937;
+  border-color: #4b5563;
+  color: #f9fafb;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #9ca3af;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.18);
+}
+
+button {
+  background: #1f2937;
+  border-color: #4b5563;
+  color: #fff;
+}
+
+.btn-secondary,
+.view-tab,
+.week-mode-toggle,
+.modal-close {
+  background: #374151;
+  color: #f9fafb;
+  border-color: #4b5563;
+}
+
+.btn-secondary:hover,
+.btn-secondary:focus-visible,
+.view-tab:hover,
+.view-tab:focus-visible,
+.modal-close:hover,
+.modal-close:focus-visible {
+  background: #4b5563;
+}
+
+.view-tab.active,
+.week-mode-button.active {
+  background: #2563eb;
+  color: #fff;
+}
+
+.calendar-shell {
+  background: #111827;
+  border-color: #374151;
+}
+
+.fc {
+  --fc-border-color: #374151;
+  --fc-page-bg-color: #111827;
+  --fc-neutral-bg-color: #1f2937;
+  --fc-today-bg-color: rgba(37, 99, 235, 0.2);
+}
+
+.fc .fc-scrollgrid,
+.fc .fc-timegrid-slot,
+.fc .fc-timegrid-axis,
+.fc .fc-daygrid-day,
+.fc .fc-col-header-cell {
+  border-color: #374151;
+}
+
+.fc .fc-col-header-cell-cushion,
+.fc .fc-daygrid-day-number,
+.fc .fc-timegrid-axis-cushion,
+.fc .fc-timegrid-slot-label-cushion {
+  color: #f9fafb;
+}
+
+.fc .focused-calendar-day {
+  background: rgba(37, 99, 235, 0.2);
+}
+
+.fc .focused-calendar-day .fc-daygrid-day-number {
+  color: #93c5fd;
+}
+
+.modal-backdrop {
+  background: rgba(3, 7, 18, 0.72);
+}
+
+.modal-card {
+  background: #161e2e;
+  border: 1px solid #374151;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+}
+
+.archive-section,
+.agency-contact {
+  border-color: #374151;
+}
