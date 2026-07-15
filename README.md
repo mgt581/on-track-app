@@ -1,8 +1,8 @@
 # on-track-app
-A simple app to stay on track.
+A simple shared booking and task planner for couples, partners, and small service teams.
 
 ## ON TRACK
-A clean, easy-to-read calendar-style planner focused on simple shared scheduling.
+A clean, easy-to-read calendar-style planner focused on shared bookings, upcoming work, and monthly task history.
 
 ### Features
 - Big readable text and minimal noise UI
@@ -19,6 +19,11 @@ A clean, easy-to-read calendar-style planner focused on simple shared scheduling
 - Choose who gets the reminder (owner, partner, or both)
 - Edit bookings from a popup without leaving the calendar
 - Real-time sync across devices and open app tabs/windows via Firestore plus browser broadcast
+- Clear onboarding for couples, partners, cleaners, trades, and small teams
+- Linked-member visibility so each workspace shows who has access
+- Workspace owners can remove members; invited members can leave without buying a separate plan
+- Reminder routing respects Owner only, Partner only, or both
+- Browser sound alarms, device notifications, and optional spoken alarm details
 
 ### Run
 1. Copy `firebase-config.example.js` to `firebase-config.local.js`.
@@ -32,6 +37,8 @@ On first sign-in, ON TRACK creates a shared calendar and shows a partner invite 
 Deploy `firestore.rules` to the same Firebase project before using separate accounts. The rules allow only calendar members to read or edit shared data; the invite code is used only for the one-time join update. Firestore writes are transactionally merged so a stale device cannot erase a booking added by the other device.
 LocalStorage is kept only as an offline backup for the signed-in user if Firestore is temporarily unavailable.
 
+Workspace membership is controlled by the shared calendar owner. Invited users inherit the workspace's account allowance and do not need to buy a second subscription. The owner can remove a member, and non-owner members can leave. Browser alarms and speech work while the planner is open; reliable alerts while the app is fully closed require push/native scheduling and device permission.
+
 ### Linked-account plans
 
 - Free: 1 account
@@ -40,4 +47,4 @@ LocalStorage is kept only as an offline backup for the signed-in user if Firesto
 - Up to 10 accounts: £8.99/month
 - More than 10 accounts: contact us
 
-Stripe checkout is handled by the Firebase Functions in `functions/`. The Firebase project must use the Blaze plan for Functions deployment. Set `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` as Firebase secrets, configure the three Stripe Price IDs in `functions/.env`, deploy the functions, and register the `stripeWebhook` URL in Stripe. The owner allowlist in the functions and Firestore rules gives owner mode to `alexbryantwork3234@outlook.com` and `meganbullock881@yahoo.com` without payment or account limits.
+Stripe checkout is handled by the Firebase Functions in `functions/`. The Firebase project must use the Blaze plan for Functions deployment. Set `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` as Firebase secrets, configure the three Stripe Price IDs in `functions/.env`, deploy the functions, and register the `stripeWebhook` URL in Stripe. The app adds the signed-in Firebase UID as Stripe's `client_reference_id` when opening a Payment Link so the webhook can reconcile a completed subscription with the right account. The owner allowlist in the functions and Firestore rules gives owner mode to `alexbryantwork3234@outlook.com` and `meganbullock881@yahoo.com` without payment or account limits.

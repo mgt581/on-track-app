@@ -94,6 +94,66 @@ main {
   gap: 1rem;
 }
 
+.sharing-details {
+  min-width: 0;
+}
+
+.sharing-capacity {
+  margin: 0.3rem 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.member-list {
+  margin-top: 0.65rem;
+}
+
+.member-list-label {
+  display: block;
+  margin-bottom: 0.3rem;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.member-list-items {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.member-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  max-width: 100%;
+}
+
+.sharing-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.7rem;
+}
+
+.member-chip {
+  max-width: 100%;
+  overflow: hidden;
+  padding: 0.25rem 0.55rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--dark);
+  background: #f3f4f6;
+  font-size: 0.84rem;
+  overflow-wrap: anywhere;
+}
+
 .billing-card {
   display: grid;
   gap: 0.9rem;
@@ -135,6 +195,11 @@ main {
   background: #f3f4f6;
   color: var(--dark);
   border: 1px solid var(--line);
+}
+
+.pricing-free {
+  background: #eef6ff;
+  border-color: #bfdbfe;
 }
 
 .pricing-option span {
@@ -205,6 +270,19 @@ main {
   gap: 0.5rem;
   flex-wrap: wrap;
   justify-content: flex-end;
+}
+
+.notification-speech-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--muted);
+  font-size: 0.86rem;
+  white-space: nowrap;
+}
+
+.notification-speech-option input {
+  width: auto;
 }
 
 h2 {

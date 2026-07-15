@@ -27,6 +27,11 @@ service cloud.firestore {
         && request.auth.uid in resource.data.memberUids;
     }
 
+    function isCalendarOwner() {
+      return signedIn()
+        && resource.data.ownerUid == request.auth.uid;
+    }
+
     function isJoining() {
       return signedIn()
         && request.resource.data.inviteCode == resource.data.inviteCode
@@ -38,6 +43,38 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'memberUids',
           'memberEmails'
+      ]);
+    }
+
+    function isOwnerRemovingMember() {
+      return isCalendarOwner()
+        && request.resource.data.ownerUid == resource.data.ownerUid
+        && request.resource.data.inviteCode == resource.data.inviteCode
+        && request.resource.data.memberUids.size() < resource.data.memberUids.size()
+        && request.resource.data.memberUids.size() >= 1
+        && request.resource.data.memberEmails.size() == request.resource.data.memberUids.size()
+        && resource.data.memberUids.hasAll(request.resource.data.memberUids)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'memberUids',
+          'memberEmails',
+          'updatedAt'
+        ]);
+    }
+
+    function isLeavingMember() {
+      return isMember()
+        && resource.data.ownerUid != request.auth.uid
+        && !(request.auth.uid in request.resource.data.memberUids)
+        && request.resource.data.memberUids.size() == resource.data.memberUids.size() - 1
+        && request.resource.data.memberEmails.size() == resource.data.memberEmails.size() - 1
+        && request.resource.data.memberUids.hasAll([resource.data.ownerUid])
+        && resource.data.memberUids.hasAll(request.resource.data.memberUids)
+        && request.resource.data.ownerUid == resource.data.ownerUid
+        && request.resource.data.inviteCode == resource.data.inviteCode
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'memberUids',
+          'memberEmails',
+          'updatedAt'
         ]);
     }
 
@@ -72,6 +109,8 @@ service cloud.firestore {
           ])
         )
         || isJoining()
+        || isOwnerRemovingMember()
+        || isLeavingMember()
         || (isMember()
           && request.resource.data.memberUids == resource.data.memberUids
           && request.resource.data.memberEmails == resource.data.memberEmails

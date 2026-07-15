@@ -20,7 +20,7 @@
       <h1 class="brand">
         <img src="logo.svg" alt="ON TRACK" class="brand-logo" />
       </h1>
-      <p class="subtitle">Simple, clean shared scheduling</p>
+      <p class="subtitle">Shared bookings for couples, partners &amp; small teams</p>
       <div class="account-bar" aria-live="polite">
         <span id="account-email" class="account-email">Checking account…</span>
         <span id="sync-status" class="account-sync">Loading your planner…</span>
@@ -36,7 +36,7 @@
       <div class="notification-copy">
         <h2 id="notification-banner-title">Enable notifications for alarms</h2>
         <p id="notification-banner-text">
-          Notifications help reminders reach you even when the app is not open.
+          Enable device alerts while ON TRACK is open. Reliable alarms when the app is fully closed need push or native scheduling.
         </p>
       </div>
       <div class="notification-actions">
@@ -49,12 +49,16 @@
       <section class="card billing-card">
         <div class="billing-header">
           <div>
-            <h2>Plans for linked accounts</h2>
-            <p class="billing-copy">Keep one dashboard for couples, partners, clubs, teams, and organisations.</p>
+            <h2>Simple plans for linked accounts</h2>
+            <p class="billing-copy">Start free with one account, then share one dashboard with a partner or team.</p>
           </div>
           <p id="billing-status-text" class="billing-status-text">Checking plan…</p>
         </div>
         <div class="pricing-grid">
+          <div class="pricing-option pricing-free" aria-label="Free plan for one account">
+            <strong>Free</strong>
+            <span>1 account</span>
+          </div>
           <button type="button" class="pricing-option" data-plan="duo">
             <strong>2 accounts</strong>
             <span>£2.99 / month</span>
@@ -83,12 +87,17 @@
       </section>
 
       <section class="card sharing-card">
-        <div>
+        <div class="sharing-details">
           <h2>Shared calendar access</h2>
           <p id="sharing-text" class="sharing-copy">Preparing your shared calendar…</p>
+          <p id="sharing-capacity" class="sharing-capacity"></p>
+          <div id="sharing-members" class="member-list" aria-live="polite"></div>
+          <div class="sharing-actions">
+            <button type="button" id="leave-shared-calendar-btn" class="btn-secondary" hidden>Leave team</button>
+          </div>
           <p id="sharing-result" class="field-hint" aria-live="polite"></p>
         </div>
-        <button type="button" id="copy-invite-btn">Link account</button>
+        <button type="button" id="copy-invite-btn" aria-describedby="sharing-text sharing-capacity">Link account</button>
       </section>
 
       <section class="card calendar-card">
@@ -180,6 +189,10 @@
               <option value="1440">1 day before</option>
             </select>
             <p class="field-hint reminder-hint">Alarms work while the app is open. For reliable background alerts, mobile app notifications are required.</p>
+            <span class="notification-speech-option">
+              <input type="checkbox" id="notification-speech-toggle" />
+              Read alarm details aloud
+            </span>
           </label>
           <label>
             Notify

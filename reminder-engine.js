@@ -3,7 +3,9 @@ export function createReminderEngine({
   getServiceLabel,
   parseLocalDateTime,
   normalizeReminder,
-  formatDisplayDateTime
+  formatDisplayDateTime,
+  shouldNotifyEntry = () => true,
+  shouldSpeakEntry = () => false
 }) {
   const reminderTimers = new Map();
   let alarmSound = null;
@@ -22,6 +24,10 @@ export function createReminderEngine({
     reminderTimers.clear();
 
     entries.forEach((entry) => {
+      if (!shouldNotifyEntry(entry)) {
+        return;
+      }
+
       const start = parseLocalDateTime(entry.dateTime).getTime();
       const reminderTime = start - normalizeReminder(entry.reminderMinutes) * 60 * 1000;
       const delay = reminderTime - Date.now();
@@ -60,6 +66,24 @@ export function createReminderEngine({
     if (navigator.vibrate) {
       navigator.vibrate([200, 100, 200]);
     }
+
+    if (shouldSpeakEntry(entry)) {
+      speakAlarm(entry, serviceLabel, start);
+    }
+  }
+
+  function speakAlarm(entry, serviceLabel, start) {
+    if (!('speechSynthesis' in window)) {
+      return;
+    }
+
+    const utterance = new SpeechSynthesisUtterance(
+      `ON TRACK reminder. ${entry.title}. ${serviceLabel || 'General'}. Starts ${formatDisplayDateTime(start)}.`
+    );
+    utterance.rate = 0.95;
+    utterance.pitch = 1;
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(utterance);
   }
 
   async function primeAlarmAudio() {

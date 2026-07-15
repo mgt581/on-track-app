@@ -6,7 +6,7 @@
   <title>Sign In or Create an Account</title>
   <style>
     body {
-      background-color: #0b1221;
+      background: radial-gradient(circle at top left, #1d4ed8 0, #0b1221 46%, #070b14 100%);
       color: #ffffff;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       display: flex;
@@ -17,6 +17,61 @@
       padding: 20px;
       box-sizing: border-box;
     }
+    .auth-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
+      align-items: center;
+      gap: clamp(32px, 7vw, 100px);
+      width: min(1080px, 100%);
+    }
+    .auth-intro {
+      max-width: 560px;
+    }
+    .eyebrow {
+      color: #93c5fd;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.16em;
+    }
+    .auth-intro h1 {
+      margin: 12px 0 16px;
+      font-size: clamp(36px, 5vw, 64px);
+      line-height: 1.02;
+    }
+    .auth-intro > p {
+      max-width: 500px;
+      color: #dbeafe;
+      font-size: 18px;
+      line-height: 1.55;
+    }
+    .auth-use-cases {
+      display: grid;
+      gap: 10px;
+      padding: 0;
+      margin: 28px 0 0;
+      list-style: none;
+      color: #e5e7eb;
+    }
+    .auth-use-cases li::before {
+      content: "✓";
+      display: inline-block;
+      width: 24px;
+      color: #93c5fd;
+      font-weight: 800;
+    }
+    .auth-proof {
+      display: grid;
+      gap: 4px;
+      margin-top: 30px;
+      padding: 14px 16px;
+      border-left: 3px solid #60a5fa;
+      background: rgba(15, 23, 42, 0.55);
+      color: #dbeafe;
+    }
+    .auth-proof span {
+      color: #9ca3af;
+      font-size: 14px;
+    }
     .auth-container {
       background-color: #161e2e;
       padding: 30px;
@@ -24,6 +79,7 @@
       box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
       width: 100%;
       max-width: 400px;
+      justify-self: end;
     }
     h2 {
       margin-top: 0;
@@ -34,6 +90,23 @@
       color: #9ca3af;
       font-size: 14px;
       margin-bottom: 24px;
+    }
+    .auth-plan {
+      margin: -8px 0 22px;
+      color: #bfdbfe;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+    .invite-notice {
+      display: none;
+      margin: 0 0 16px;
+      padding: 10px 12px;
+      border: 1px solid rgba(96, 165, 250, 0.5);
+      border-radius: 6px;
+      background: rgba(37, 99, 235, 0.18);
+      color: #dbeafe;
+      font-size: 13px;
+      line-height: 1.4;
     }
     .auth-status {
       display: inline-flex;
@@ -125,40 +198,80 @@
     #sign-up-btn:hover {
       background-color: #f3f4f6;
     }
+    @media (max-width: 760px) {
+      body {
+        align-items: flex-start;
+        padding: 28px 16px;
+      }
+      .auth-layout {
+        grid-template-columns: 1fr;
+        gap: 28px;
+      }
+      .auth-intro h1 {
+        font-size: 42px;
+      }
+      .auth-intro > p {
+        font-size: 16px;
+      }
+      .auth-container {
+        justify-self: stretch;
+        max-width: none;
+      }
+    }
   </style>
 </head>
 <body>
 
-  <div class="auth-container">
-    <h2>Sign in or create an account</h2>
-    <p>Use separate logins and share one calendar with a private invite link.</p>
-    <div id="auth-status" class="auth-status" aria-live="polite">
-      <span id="auth-spinner" class="spinner" aria-hidden="true"></span>
-      <span id="auth-status-text">Checking your session…</span>
-    </div>
-    <div id="auth-error" class="auth-error" role="alert" aria-live="assertive" hidden></div>
-
-    <form id="auth-form">
-      <div class="form-group">
-        <label for="email">Email</label>
-        <input type="email" id="email" placeholder="you@example.com" required>
+  <main class="auth-layout">
+    <section class="auth-intro" aria-labelledby="welcome-title">
+      <span class="eyebrow">ON TRACK</span>
+      <h1 id="welcome-title">One shared schedule. Less chasing.</h1>
+      <p>Keep bookings, tasks and follow-through in one place while everyone keeps their own secure login.</p>
+      <ul class="auth-use-cases">
+        <li>Couples and partners planning together</li>
+        <li>Cleaners, trades and mobile service businesses</li>
+        <li>Small teams that need a simple shared workspace</li>
+      </ul>
+      <div class="auth-proof">
+        <strong>Built for real day-to-day work</strong>
+        <span>Upcoming tasks stay clear. Finished work is kept in monthly folders.</span>
       </div>
+    </section>
 
-      <div class="form-group">
-        <label for="password">Password</label>
-        <input type="password" id="password" placeholder="At least 6 characters" required>
+    <section class="auth-container" aria-labelledby="auth-title">
+      <h2 id="auth-title">Sign in or create an account</h2>
+      <p>Use separate logins and share one calendar with a private invite link.</p>
+      <p id="invite-notice" class="invite-notice" role="status"></p>
+      <p class="auth-plan">Free for one account. Link a partner or team when you are ready.</p>
+      <div id="auth-status" class="auth-status" aria-live="polite">
+        <span id="auth-spinner" class="spinner" aria-hidden="true"></span>
+        <span id="auth-status-text">Checking your session…</span>
       </div>
+      <div id="auth-error" class="auth-error" role="alert" aria-live="assertive" hidden></div>
 
-      <div class="form-group">
-        <label for="confirm-password">Confirm password (for sign up)</label>
-        <input type="password" id="confirm-password" placeholder="Repeat your password">
-      </div>
+      <form id="auth-form">
+        <div class="form-group">
+          <label for="email">Email</label>
+          <input type="email" id="email" placeholder="you@example.com" required>
+        </div>
 
-      <div class="btn-group">
-        <button type="button" id="sign-in-btn">Sign in</button>
-        <button type="button" id="sign-up-btn">Sign up</button>
-      </div>
-    </form>
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input type="password" id="password" placeholder="At least 6 characters" required>
+        </div>
+
+        <div class="form-group">
+          <label for="confirm-password">Confirm password (for sign up)</label>
+          <input type="password" id="confirm-password" placeholder="Repeat your password">
+        </div>
+
+        <div class="btn-group">
+          <button type="button" id="sign-in-btn">Sign in</button>
+          <button type="button" id="sign-up-btn">Sign up</button>
+        </div>
+      </form>
+    </section>
+  </main>
   </div>
 
   <script type="module">
@@ -173,7 +286,14 @@
     const authStatusText = document.getElementById('auth-status-text');
     const authSpinner = document.getElementById('auth-spinner');
     const authError = document.getElementById('auth-error');
+    const inviteNotice = document.getElementById('invite-notice');
     let authStateChecked = false;
+
+    const inviteParams = new URLSearchParams(window.location.search);
+    if (inviteParams.get('share') && inviteParams.get('code')) {
+      inviteNotice.textContent = 'You have been invited to join a shared ON TRACK calendar. Sign in or create your own account to continue.';
+      inviteNotice.style.display = 'block';
+    }
 
     function setAuthBusy(message, busy) {
       authStatusText.textContent = message;
